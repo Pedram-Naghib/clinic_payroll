@@ -253,3 +253,94 @@ MSG_UNMATCHED_DETAILS = (
 MSG_RELINK_RESULT = "{n} رکورد به کارمندان متصل شد."
 MSG_NO_DATA = "ابتدا یک فایل دستگاه بارگذاری کنید."
 MSG_COMPUTATION_DONE = "محاسبه برای {month_label} {year} تکمیل شد."
+
+
+# ============================================================
+# Commissions tab (کمیسیون‌های مستقیم)
+# ============================================================
+
+TAB_COMMISSIONS = "کمیسیون‌های مستقیم"
+
+COMMISSIONS_INFO = (
+    "ثبت کمیسیون‌های مستقیمی که بلافاصله از درآمد بیمار به کارمند پرداخت می‌شود "
+    "(پیرسینگ، آزمایش فوری خون). این مبالغ کاملاً جدا از حقوق ماهیانه محاسبه و گزارش می‌شوند."
+)
+
+SERVICE_TYPE_PIERCING = "پیرسینگ"
+SERVICE_TYPE_FAST_BLOOD_TEST = "آزمایش فوری خون"
+SERVICE_TYPE_DISPLAY = {
+    "piercing": SERVICE_TYPE_PIERCING,
+    "fast_blood_test": SERVICE_TYPE_FAST_BLOOD_TEST,
+}
+
+LBL_EMPLOYEE = "کارمند:"
+LBL_SERVICE_TYPE = "نوع خدمت:"
+LBL_FEE_TOMAN = "مبلغ دریافتی (تومان):"
+LBL_SERVICE_DATE = "تاریخ (شمسی):"
+LBL_SERVICE_DATE_HINT = "مثال: 1405/03/15"
+LBL_COMMISSION_NOTES = "یادداشت (اختیاری):"
+LBL_COMMISSION_PREVIEW_EMPTY = "کمیسیون: —"
+LBL_COMMISSION_PREVIEW = "کمیسیون ({rate:g}٪): {amount:,} ریال"
+
+BTN_SAVE_COMMISSION = "ثبت کمیسیون"
+BTN_DELETE_COMMISSION = "حذف انتخاب‌شده"
+
+COL_COMM_EMPLOYEE = "کارمند"
+COL_COMM_SERVICE = "نوع خدمت"
+COL_COMM_FEE = "مبلغ دریافتی (ریال)"
+COL_COMM_RATE = "درصد"
+COL_COMM_AMOUNT = "مبلغ کمیسیون (ریال)"
+COL_COMM_DATE = "تاریخ"
+COL_COMM_NOTES = "یادداشت"
+
+FILTER_ALL_EMPLOYEES = "همهٔ کارکنان"
+
+MSG_INVALID_FEE = "مبلغ نامعتبر"
+MSG_FEE_REQUIRED = "مبلغ دریافتی باید عددی بزرگ‌تر از صفر باشد."
+MSG_INVALID_DATE = "تاریخ نامعتبر"
+MSG_DATE_FORMAT_HINT = "تاریخ را به فرم ۱۴۰۵/۰۳/۱۵ وارد کنید."
+MSG_NO_EMPLOYEE = "کارمند انتخاب نشده"
+MSG_SELECT_EMPLOYEE_FIRST = "ابتدا یک کارمند را انتخاب کنید."
+MSG_COMMISSION_SAVED = "کمیسیون با موفقیت ثبت شد."
+MSG_NO_COMMISSION_SELECTION = "ابتدا یک ردیف را از جدول انتخاب کنید."
+MSG_CONFIRM_DELETE_COMMISSION = "این ردیف کمیسیون برای همیشه حذف می‌شود. ادامه می‌دهید؟"
+
+
+# ============================================================
+# Payroll-run tab (اجرای حقوق ماهیانه)
+# ============================================================
+
+TAB_PAYROLL = "اجرای حقوق"
+
+PAYROLL_INFO = (
+    "ماه شمسی را انتخاب کرده و «اجرای محاسبه» را بزنید. حضور و غیاب برای این بازه "
+    "به‌صورت خودکار از روی رکوردهای خام دستگاه بازمحاسبه می‌شود. پس از بررسی نتایج، "
+    "برای ثبت دائمی در دیتابیس روی «ذخیرهٔ این اجرا» کلیک کنید."
+)
+
+BTN_RUN_PAYROLL = "اجرای محاسبه"
+BTN_SAVE_PAYROLL_RUN = "ذخیرهٔ این اجرا"
+
+COL_PR_NAME = "نام"
+COL_PR_TYPE = "نوع استخدام"
+COL_PR_REGULAR_HOURS = "ساعات عادی"
+COL_PR_OVERTIME_HOURS = "ساعات اضافه‌کاری"
+COL_PR_HOLIDAY_HOURS = "ساعات تعطیل"
+COL_PR_BASE_PAY = "حقوق پایه"
+COL_PR_OVERTIME_PAY = "مزد اضافه‌کاری"
+COL_PR_HOLIDAY_PAY = "مزد تعطیل‌کاری"
+COL_PR_ALLOWANCES = "جمع مزایا"
+COL_PR_INSURANCE = "کسر بیمه"
+COL_PR_TOTAL = "خالص پرداختی"
+
+LBL_PAYROLL_TOTAL = "جمع کل خالص پرداختی این ماه: {total:,} ریال"
+MSG_SKIPPED_EMPLOYEES = (
+    "{n} کارمند به دلیل نامشخص بودن شماره دستگاه (۰) از این محاسبه حذف شدند: {names}\n"
+    "برای رفع این مشکل، در زبانهٔ «کارکنان» شماره دستگاه صحیح را وارد کنید."
+)
+MSG_NO_RESULTS_TO_SAVE = "ابتدا محاسبه را اجرا کنید."
+MSG_CONFIRM_OVERWRITE_RUN = (
+    "برای {month_label} {year} قبلاً یک اجرای حقوق ذخیره شده است (تاریخ ثبت: {generated_at}). "
+    "ذخیرهٔ مجدد، نتایج قبلی را جایگزین می‌کند. ادامه می‌دهید؟"
+)
+MSG_PAYROLL_RUN_SAVED = "اجرای حقوق با شناسهٔ #{run_id} با موفقیت ذخیره شد."
