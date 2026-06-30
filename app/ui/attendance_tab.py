@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 from app.core.punch_importer import (
     import_punches_file, relink_unmatched_punches, punch_summary,
 )
-from app.core.attendance_engine import compute_attendance, EmployeeAttendance
+from app.core.attendance_engine import compute_and_persist_attendance, EmployeeAttendance
 from app.core.jalali import jalali_to_gregorian, gregorian_to_jalali
 from app.ui import strings_fa as S
 
@@ -190,7 +190,7 @@ class AttendanceTab(QWidget):
         period_start = datetime.combine(period_start_d, time(0, 0, 0))
         period_end = datetime.combine(period_end_d, time(0, 0, 0))
 
-        results = compute_attendance(self.conn, period_start, period_end)
+        results = compute_and_persist_attendance(self.conn, period_start, period_end)
         self._last_results = results
         self._render_results(results)
 

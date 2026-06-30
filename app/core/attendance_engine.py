@@ -39,9 +39,9 @@ MIN_PLAUSIBLE_SESSION_MINUTES = 5
 class WorkSession:
     employee_id: int
     in_time: datetime
-    out_time: datetime
+    out_time: datetime | None
     hours: float
-    note: str = "ok"  # 'ok' | 'too_long' | 'too_short'
+    note: str = "ok"  # 'ok' | 'too_long' | 'too_short' | 'missing_punch'
 
 
 @dataclass
@@ -143,14 +143,153 @@ def compute_attendance(
                 att.sessions.append(WorkSession(emp["id"], in_t, out_t, round(hours, 2), note))
             i += 2
 
-        # Orphan trailing IN inside the period
+        # Orphan trailing IN inside the period -- Zero-Tolerance Policy:
+        # recorded as a real zero-hour session (not just a text anomaly) so
+        # it persists into daily_attendance as status='missing_punch' and
+        # the manager sees it per-day, not just in a tooltip.
         if len(times) % 2 == 1:
             orphan = times[-1]
             if period_start <= orphan < period_end:
                 att.anomalies.append(f"ورود بدون خروج در {orphan} — خروج ثبت نشده")
+                att.sessions.append(
+                    WorkSession(emp["id"], orphan, None, 0.0, "missing_punch")
+                )
 
         att.total_hours = round(att.total_hours, 2)
         att.days_worked = len(days_with_session)
         results.append(att)
 
     return results
+
+
+# =============================================================================
+# SEGMENT-ZERO PERSISTENCE  (added 2026-06-30)
+# =============================================================================
+#
+# compute_attendance() above already EXCLUDES too_long/too_short sessions and
+# trailing unmatched IN punches from total_hours -- so an employee who
+# forgets to punch out already nets zero pay for that segment, mechanically.
+# What was missing: (1) writing that result into daily_attendance per
+# work_date so other modules (holiday join, payroll batch) can read it
+# without recomputing, and (2) a clear status label per the zero-tolerance
+# policy ("Missing Exit" / status='missing_punch') instead of only a
+# free-text anomaly string.
+#
+# Nothing above this line was changed. attendance_tab.py's existing call to
+# compute_attendance(self.conn, period_start, period_end) keeps working
+# exactly as before. The one-line change needed there is to additionally
+# call persist_daily_attendance() right after, so the "Compute Hours" button
+# also fact-checks-and-saves instead of only fact-checking.
+
+def persist_daily_attendance(
+    conn: sqlite3.Connection,
+    results: list[EmployeeAttendance],
+) -> None:
+    """Writes one daily_attendance row per (employee, work_date) found in
+    `results`. Hours are attributed to the calendar date of the session's
+    IN punch (handles night shifts crossing midnight). Segment-Zero: a
+    session note != 'ok' (too_long/too_short, i.e. a missing or implausible
+    punch) contributes 0 hours to that day's worked_hours, and the day's
+    status is set to 'missing_punch' so the manager sees it -- no further
+    action required from them; the employee loses that segment's pay."""
+    for att in results:
+        if att.is_fixed_pay:
+            continue  # fixed-pay staff don't clock in; nothing to persist
+
+        by_day: dict[str, list[WorkSession]] = {}
+        for sess in att.sessions:
+            day_key = sess.in_time.date().isoformat()
+            by_day.setdefault(day_key, []).append(sess)
+
+        for work_date, day_sessions in by_day.items():
+            worked_hours = sum(s.hours for s in day_sessions if s.note == "ok")
+            any_problem = any(s.note != "ok" for s in day_sessions)
+            first_in = min(s.in_time for s in day_sessions)
+            ok_outs = [s.out_time for s in day_sessions if s.note == "ok" and s.out_time]
+            last_out = max(ok_outs) if ok_outs else None
+            status = "missing_punch" if any_problem else "ok"
+
+            conn.execute(
+                """
+                INSERT INTO daily_attendance
+                    (employee_id, work_date, first_in, last_out, worked_hours, status)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(employee_id, work_date) DO UPDATE SET
+                    first_in = excluded.first_in,
+                    last_out = excluded.last_out,
+                    worked_hours = excluded.worked_hours,
+                    status = excluded.status
+                """,
+                (
+                    att.employee_id,
+                    work_date,
+                    first_in.strftime("%Y-%m-%d %H:%M:%S"),
+                    last_out.strftime("%Y-%m-%d %H:%M:%S") if last_out else None,
+                    round(worked_hours, 2),
+                    status,
+                ),
+            )
+    conn.commit()
+
+
+def compute_and_persist_attendance(
+    conn: sqlite3.Connection,
+    period_start: datetime,
+    period_end: datetime,
+) -> list[EmployeeAttendance]:
+    """Convenience wrapper: compute_attendance() + persist_daily_attendance()
+    in one call. Use this from the UI instead of calling compute_attendance()
+    directly, so daily_attendance stays in sync with what's shown on screen."""
+    results = compute_attendance(conn, period_start, period_end)
+    persist_daily_attendance(conn, results)
+    return results
+
+
+def build_payroll_inputs(
+    conn: sqlite3.Connection,
+    period_start: datetime,
+    period_end: datetime,
+) -> dict[int, tuple[float, float]]:
+    """Returns { employee_id: (worked_hours, holiday_hours) } for every
+    active employee in the period -- the exact shape
+    payroll_engine.calculate_payroll_batch() expects.
+
+    Call compute_and_persist_attendance() for this period FIRST so
+    daily_attendance is up to date, then call this.
+
+    holiday_hours is computed by joining daily_attendance.work_date against
+    iranian_holidays (see app.core.holidays) -- it is a SUBSET of
+    worked_hours, not additional, matching how payroll_engine.py already
+    expects holiday_hours to be passed (see its non_insured branch:
+    regular_hours = worked_hours - holiday_hours)."""
+    start_date = period_start.date().isoformat()
+    end_date = (period_end.date()).isoformat()  # period_end is exclusive upstream
+
+    rows = conn.execute(
+        """
+        SELECT
+            da.employee_id,
+            COALESCE(SUM(da.worked_hours), 0) AS total_hours,
+            COALESCE(SUM(
+                CASE WHEN ih.work_date IS NOT NULL THEN da.worked_hours ELSE 0 END
+            ), 0) AS holiday_hours
+        FROM daily_attendance da
+        LEFT JOIN iranian_holidays ih ON ih.work_date = da.work_date
+        WHERE da.work_date >= ? AND da.work_date < ?
+        GROUP BY da.employee_id
+        """,
+        (start_date, end_date),
+    ).fetchall()
+
+    inputs: dict[int, tuple[float, float]] = {
+        row[0]: (round(row[1], 2), round(row[2], 2)) for row in rows
+    }
+
+    # Active employees with no daily_attendance rows this period (fixed-pay
+    # staff, or genuinely zero punches) still get an entry so
+    # calculate_payroll_batch sees them; fixed_no_clocking employees ignore
+    # worked_hours entirely inside payroll_engine anyway.
+    for (emp_id,) in conn.execute("SELECT id FROM employees WHERE active = 1"):
+        inputs.setdefault(emp_id, (0.0, 0.0))
+
+    return inputs
