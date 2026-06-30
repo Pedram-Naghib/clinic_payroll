@@ -138,6 +138,10 @@ CONFIG_LABELS = {
     "insurance_deduction_pct": "درصد کسر بیمه",
     "fixed_marriage_allowance": "حق ازدواج (ثابت)",
     "fixed_child_allowance": "حق اولاد (به ازای هر فرزند)",
+    "fixed_housing_allowance": "حق مسکن (ثابت، بیمه‌شده)",
+    "fixed_food_allowance": "حق خواربار (ثابت، بیمه‌شده)",
+    "housing_allowance_per_hour": "حق مسکن (ساعتی، بیمه نشده)",
+    "food_allowance_per_hour": "حق خواربار (ساعتی، بیمه نشده)",
     "medical_leave_paid_days_cap": "سقف مرخصی استعلاجی پرداختی (روز در ماه)",
     "piercing_commission_pct": "درصد کمیسیون پیرسینگ",
     "fast_blood_test_commission_pct": "درصد کمیسیون آزمایش فوری خون",
@@ -150,6 +154,10 @@ CONFIG_DESCRIPTIONS = {
     "insurance_deduction_pct": "از کل درآمد بیمه‌شده کسر می‌شود (به جز حق اولاد و اضافه‌کاری)",
     "fixed_marriage_allowance": "مبلغ ثابتی که در صورت متأهل بودن کارمند اضافه می‌شود",
     "fixed_child_allowance": "در تعداد فرزندان کارمند ضرب می‌شود",
+    "fixed_housing_allowance": "مبلغ ثابت ماهانه برای همهٔ کارکنان بیمه‌شده — یک نرخ سراسری، یک‌بار اینجا ویرایش کنید",
+    "fixed_food_allowance": "مبلغ ثابت ماهانه برای همهٔ کارکنان بیمه‌شده — یک نرخ سراسری، یک‌بار اینجا ویرایش کنید",
+    "housing_allowance_per_hour": "در ساعات کارکرد کارکنان بیمه نشده ضرب می‌شود — یک نرخ سراسری",
+    "food_allowance_per_hour": "در ساعات کارکرد کارکنان بیمه نشده ضرب می‌شود — یک نرخ سراسری",
     "medical_leave_paid_days_cap": "سقف روزهای مرخصی استعلاجی که توسط درمانگاه پرداخت می‌شود",
     "piercing_commission_pct": "درصد کمیسیون مستقیم خدمات پیرسینگ",
     "fast_blood_test_commission_pct": "درصد کمیسیون مستقیم خدمات آزمایش فوری خون",
@@ -344,3 +352,14 @@ MSG_CONFIRM_OVERWRITE_RUN = (
     "ذخیرهٔ مجدد، نتایج قبلی را جایگزین می‌کند. ادامه می‌دهید؟"
 )
 MSG_PAYROLL_RUN_SAVED = "اجرای حقوق با شناسهٔ #{run_id} با موفقیت ذخیره شد."
+
+
+# ============================================================
+# Job Roles (نقش‌های شغلی) — Employees tab
+# ============================================================
+
+COL_ROLES = "نقش‌ها"
+LBL_ROLES = "نقش‌های شغلی:"
+LBL_NEW_ROLE_HINT = "نقش جدید را تایپ کنید..."
+BTN_ADD_ROLE = "افزودن"
+MSG_ROLE_ALREADY_EXISTS = "این نقش قبلاً در فهرست وجود دارد."

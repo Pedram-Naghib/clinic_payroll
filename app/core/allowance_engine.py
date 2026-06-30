@@ -6,9 +6,11 @@ Python, every allowance is described declaratively in the `allowance_definitions
 table. The Owner can enable/disable an allowance, or flip which employment
 type(s) it applies to, entirely through the dashboard UI — no code changes.
 
-Each allowance row computes to an amount via one of four `amount_type`s:
+Each allowance row computes to an amount via one of five `amount_type`s:
   - config_flat:            flat value from system_config[config_key]
   - config_per_child:       employee.number_of_children * system_config[config_key]
+  - config_per_hour:        system_config[config_key] * worked_hours (global rate,
+                             e.g. housing/food allowance per hour for non-insured staff)
   - employee_field_flat:    flat value from employees[employee_field]
   - employee_field_per_hour: employees[employee_field] * worked_hours
 
@@ -91,6 +93,10 @@ def _compute_amount(conn, rule: sqlite3.Row, employee: sqlite3.Row, worked_hours
         per_child = get_config(conn, rule["config_key"], default=0) or 0
         children = employee["number_of_children"] or 0
         return int(per_child * children)
+
+    if amount_type == "config_per_hour":
+        per_hour = get_config(conn, rule["config_key"], default=0) or 0
+        return round(per_hour * worked_hours)
 
     if amount_type == "employee_field_flat":
         field = rule["employee_field"]

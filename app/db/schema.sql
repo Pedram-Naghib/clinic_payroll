@@ -23,17 +23,27 @@ CREATE TABLE IF NOT EXISTS employees (
     is_exempt_from_shifts INTEGER NOT NULL DEFAULT 0,  -- e.g. Pegah Naghib (no shift tracking)
     fixed_monthly_salary INTEGER,             -- insured: base monthly salary. non_insured: flat add-on (e.g. Rahmani mgmt pay)
     base_hourly_rate     INTEGER,             -- explicit hourly rate (esp. non_insured); auto-derived for insured if blank
-    housing_allowance_per_hour INTEGER DEFAULT 0,  -- non_insured dynamic multiplier
-    food_allowance_per_hour    INTEGER DEFAULT 0,
-    fixed_housing_allowance     INTEGER DEFAULT 0, -- fixed amount (insured)
-    fixed_food_allowance        INTEGER DEFAULT 0,
     is_married                   INTEGER DEFAULT 0,  -- structural flag, replaces hardcoded marriage_allowance
     number_of_children           INTEGER DEFAULT 0,  -- multiplied by System_Config.fixed_child_allowance
     seniority_allowance          INTEGER DEFAULT 0,  -- سنوات
     vacation_balance_days        REAL DEFAULT 0,     -- persistent paid-vacation balance
-    active                       INTEGER NOT NULL DEFAULT 1,
+    active                       INTEGER NOT NULL DEFAULT 1,  -- soft-delete flag; intentionally hidden from the main UI grid, not removed from the DB
     notes                        TEXT,
     created_at                   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- ===================== JOB ROLES (dynamic, many-to-many) =====================
+-- Owner-defined role names (e.g. 'Behyar', 'Paziresh'), typed freely in the UI --
+-- never hardcoded in Python. An employee can hold any number of roles at once.
+CREATE TABLE IF NOT EXISTS roles (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    name    TEXT UNIQUE NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS employee_roles (
+    employee_id INTEGER NOT NULL REFERENCES employees(id),
+    role_id     INTEGER NOT NULL REFERENCES roles(id),
+    PRIMARY KEY (employee_id, role_id)
 );
 
 -- ===================== GLOBAL CONFIG (Owner-editable, no code changes needed) =====================
@@ -59,6 +69,7 @@ CREATE TABLE IF NOT EXISTS allowance_definitions (
     amount_type             TEXT NOT NULL CHECK (amount_type IN (
                                  'config_flat',
                                  'config_per_child',
+                                 'config_per_hour',
                                  'employee_field_flat',
                                  'employee_field_per_hour'
                              )),

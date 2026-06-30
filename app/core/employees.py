@@ -15,10 +15,6 @@ class EmployeeInput:
     is_exempt_from_shifts: bool = False
     fixed_monthly_salary: int | None = None   # insured: base monthly salary. non_insured: flat add-on (e.g. Rahmani)
     base_hourly_rate: int | None = None        # non_insured: explicit hourly rate; insured: auto-derived if None
-    housing_allowance_per_hour: int = 0         # non_insured dynamic multiplier
-    food_allowance_per_hour: int = 0            # non_insured dynamic multiplier
-    fixed_housing_allowance: int = 0            # insured fixed amount
-    fixed_food_allowance: int = 0               # insured fixed amount
     is_married: bool = False
     number_of_children: int = 0
     seniority_allowance: int = 0
@@ -39,19 +35,15 @@ def add_employee(conn: sqlite3.Connection, emp: EmployeeInput) -> int:
         INSERT INTO employees (
             full_name, device_enroll_no, employment_type, is_exempt_from_shifts,
             fixed_monthly_salary, base_hourly_rate,
-            housing_allowance_per_hour, food_allowance_per_hour,
-            fixed_housing_allowance, fixed_food_allowance,
             is_married, number_of_children,
             seniority_allowance,
             vacation_balance_days, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             emp.full_name, emp.device_enroll_no, emp.employment_type,
             int(emp.is_exempt_from_shifts),
             emp.fixed_monthly_salary, base_hourly,
-            emp.housing_allowance_per_hour, emp.food_allowance_per_hour,
-            emp.fixed_housing_allowance, emp.fixed_food_allowance,
             int(emp.is_married), emp.number_of_children,
             emp.seniority_allowance,
             emp.vacation_balance_days, emp.notes,
@@ -71,8 +63,6 @@ def update_employee(conn: sqlite3.Connection, employee_id: int, emp: EmployeeInp
         UPDATE employees SET
             full_name = ?, device_enroll_no = ?, employment_type = ?, is_exempt_from_shifts = ?,
             fixed_monthly_salary = ?, base_hourly_rate = ?,
-            housing_allowance_per_hour = ?, food_allowance_per_hour = ?,
-            fixed_housing_allowance = ?, fixed_food_allowance = ?,
             is_married = ?, number_of_children = ?,
             seniority_allowance = ?,
             vacation_balance_days = ?, notes = ?
@@ -82,8 +72,6 @@ def update_employee(conn: sqlite3.Connection, employee_id: int, emp: EmployeeInp
             emp.full_name, emp.device_enroll_no, emp.employment_type,
             int(emp.is_exempt_from_shifts),
             emp.fixed_monthly_salary, base_hourly,
-            emp.housing_allowance_per_hour, emp.food_allowance_per_hour,
-            emp.fixed_housing_allowance, emp.fixed_food_allowance,
             int(emp.is_married), emp.number_of_children,
             emp.seniority_allowance,
             emp.vacation_balance_days, emp.notes,

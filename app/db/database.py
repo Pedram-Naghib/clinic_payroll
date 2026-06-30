@@ -45,6 +45,10 @@ def init_db(db_path: str | Path = DB_PATH, schema_path: str | Path = SCHEMA_PATH
         ("insurance_deduction_pct", "7", "int", "Insurance Deduction (%)", "Deducted from insured staff's total earnings, excluding child allowance & overtime", "payroll"),
         ("fixed_marriage_allowance", "0", "int", "Marriage Allowance (fixed)", "Flat amount added if employee.is_married = 1", "allowances"),
         ("fixed_child_allowance", "0", "int", "Child Allowance (per child)", "Multiplied by employee.number_of_children", "allowances"),
+        ("fixed_housing_allowance", "30000000", "int", "Housing Allowance (fixed, insured)", "Flat monthly amount for all insured staff -- one global rate, edit here instead of per employee", "allowances"),
+        ("fixed_food_allowance", "22000000", "int", "Food Allowance (fixed, insured)", "Flat monthly amount for all insured staff -- one global rate, edit here instead of per employee", "allowances"),
+        ("housing_allowance_per_hour", "156250", "int", "Housing Allowance (per hour, non-insured)", "Multiplied by worked hours for all non-insured staff -- one global rate", "allowances"),
+        ("food_allowance_per_hour", "114500", "int", "Food Allowance (per hour, non-insured)", "Multiplied by worked hours for all non-insured staff -- one global rate", "allowances"),
         ("medical_leave_paid_days_cap", "3", "int", "Medical Leave Paid Days/Month", "Days/month covered by clinic before becoming unpaid", "leave"),
         ("piercing_commission_pct", "30", "int", "Piercing Commission (%)", "Direct commission rate for piercing service", "commissions"),
         ("fast_blood_test_commission_pct", "20", "int", "Fast Blood Test Commission (%)", "Direct commission rate for fast blood test service", "commissions"),
@@ -55,16 +59,22 @@ def init_db(db_path: str | Path = DB_PATH, schema_path: str | Path = SCHEMA_PATH
         default_config,
     )
 
+    # Seed starting job roles (Owner-editable/extensible from the Employees tab -- not hardcoded elsewhere)
+    conn.executemany(
+        "INSERT OR IGNORE INTO roles (name) VALUES (?)",
+        [("بهیار",), ("پذیرش",)],
+    )
+
     # Seed default allowance rule definitions (flexible — Owner can re-toggle applies_to_* later)
     default_allowances = [
         # code, label, applies_to_insured, applies_to_non_insured, enabled, amount_type, config_key, employee_field, condition_field, excluded_from_insurance_base, sort_order
         ("marriage", "Marriage Allowance", 1, 0, 1, "config_flat", "fixed_marriage_allowance", None, "is_married", 0, 10),
         ("child", "Child Allowance", 1, 0, 1, "config_per_child", "fixed_child_allowance", None, None, 1, 20),
-        ("housing_fixed", "Housing Allowance (fixed)", 1, 0, 1, "employee_field_flat", None, "fixed_housing_allowance", None, 0, 30),
-        ("food_fixed", "Food Allowance (fixed)", 1, 0, 1, "employee_field_flat", None, "fixed_food_allowance", None, 0, 40),
+        ("housing_fixed", "Housing Allowance (fixed)", 1, 0, 1, "config_flat", "fixed_housing_allowance", None, None, 0, 30),
+        ("food_fixed", "Food Allowance (fixed)", 1, 0, 1, "config_flat", "fixed_food_allowance", None, None, 0, 40),
         ("seniority_fixed", "Seniority Allowance", 1, 0, 1, "employee_field_flat", None, "seniority_allowance", None, 0, 50),
-        ("housing_hourly", "Housing Allowance (hourly)", 0, 1, 1, "employee_field_per_hour", None, "housing_allowance_per_hour", None, 0, 60),
-        ("food_hourly", "Food Allowance (hourly)", 0, 1, 1, "employee_field_per_hour", None, "food_allowance_per_hour", None, 0, 70),
+        ("housing_hourly", "Housing Allowance (hourly)", 0, 1, 1, "config_per_hour", "housing_allowance_per_hour", None, None, 0, 60),
+        ("food_hourly", "Food Allowance (hourly)", 0, 1, 1, "config_per_hour", "food_allowance_per_hour", None, None, 0, 70),
     ]
     conn.executemany(
         """INSERT OR IGNORE INTO allowance_definitions

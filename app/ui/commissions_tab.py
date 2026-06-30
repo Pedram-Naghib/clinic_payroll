@@ -14,8 +14,11 @@ from app.core.commissions import (
     get_commission_rate, compute_commission_amount, SERVICE_TYPES,
 )
 from app.core.employees import list_employees
+from app.core.roles import get_employees_with_role
 from app.core.jalali import parse_jalali_str, to_jalali_str
 from app.ui import strings_fa as S
+
+BEHYAR_ROLE_NAME = "بهیار"  # the only role eligible for direct commissions per current clinic policy
 
 
 def _numeric_item(value: int | float | None, display: str | None = None) -> QTableWidgetItem:
@@ -125,12 +128,18 @@ class CommissionsTab(QWidget):
     # ----------- Data loading -----------
 
     def _load_employees(self):
-        employees = list_employees(self.conn, active_only=True)
+        behyar_employees = get_employees_with_role(self.conn, BEHYAR_ROLE_NAME, active_only=True)
+        all_employees = list_employees(self.conn, active_only=True)
+
         self.employee_combo.clear()
+        for emp in behyar_employees:
+            self.employee_combo.addItem(emp["full_name"], userData=emp["id"])
+
+        # History filter intentionally stays unfiltered (all active employees) so past
+        # commission entries for someone who later lost the Behyar role are still visible.
         self.filter_combo.clear()
         self.filter_combo.addItem(S.FILTER_ALL_EMPLOYEES, userData=None)
-        for emp in employees:
-            self.employee_combo.addItem(emp["full_name"], userData=emp["id"])
+        for emp in all_employees:
             self.filter_combo.addItem(emp["full_name"], userData=emp["id"])
 
     def load_history(self):

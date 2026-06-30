@@ -6,10 +6,12 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
     QPushButton, QMessageBox, QHeaderView, QLabel, QDialog, QFormLayout,
     QLineEdit, QComboBox, QCheckBox, QSpinBox, QDialogButtonBox, QTextEdit,
+    QListWidget, QListWidgetItem,
 )
 from PySide6.QtGui import QColor, QBrush
 
 from app.core.employees import EmployeeInput, add_employee, update_employee, delete_employee
+from app.core.roles import list_all_roles, get_employee_roles, get_employee_roles_map, set_employee_roles
 from app.ui import strings_fa as S
 
 
@@ -35,8 +37,9 @@ def _text_item(text: str) -> QTableWidgetItem:
 class EmployeeDialog(QDialog):
     """Add/Edit form covering every employee field."""
 
-    def __init__(self, parent=None, employee: sqlite3.Row | None = None):
+    def __init__(self, conn: sqlite3.Connection, parent=None, employee: sqlite3.Row | None = None):
         super().__init__(parent)
+        self.conn = conn
         self.employee = employee
         self.setWindowTitle(S.DLG_EDIT_EMPLOYEE if employee else S.DLG_ADD_EMPLOYEE)
         self.setLayoutDirection(Qt.RightToLeft)
@@ -59,11 +62,6 @@ class EmployeeDialog(QDialog):
         self.hourly_rate_edit = QLineEdit()
         self.hourly_rate_edit.setPlaceholderText(S.LBL_HOURLY_RATE_HINT)
 
-        self.housing_hourly_edit = QLineEdit()
-        self.food_hourly_edit = QLineEdit()
-        self.housing_fixed_edit = QLineEdit()
-        self.food_fixed_edit = QLineEdit()
-
         self.married_check = QCheckBox(S.LBL_MARRIED)
         self.children_spin = QSpinBox()
         self.children_spin.setRange(0, 20)
@@ -73,20 +71,31 @@ class EmployeeDialog(QDialog):
         self.notes_edit = QTextEdit()
         self.notes_edit.setFixedHeight(60)
 
+        # --- Job roles: checkable list of every known role + free-typed new ones ---
+        self.roles_list = QListWidget()
+        self.roles_list.setFixedHeight(100)
+        self._populate_roles_list(checked_roles=get_employee_roles(conn, employee["id"]) if employee else [])
+
+        new_role_row = QHBoxLayout()
+        self.new_role_edit = QLineEdit()
+        self.new_role_edit.setPlaceholderText(S.LBL_NEW_ROLE_HINT)
+        add_role_btn = QPushButton(S.BTN_ADD_ROLE)
+        add_role_btn.clicked.connect(self._on_add_role_clicked)
+        new_role_row.addWidget(self.new_role_edit)
+        new_role_row.addWidget(add_role_btn)
+
         layout.addRow(S.LBL_FULL_NAME, self.name_edit)
         layout.addRow(S.LBL_EMP_TYPE, self.type_combo)
         layout.addRow(S.LBL_DEVICE_ID, self.enroll_edit)
         layout.addRow("", self.exempt_check)
         layout.addRow(S.LBL_FIXED_SALARY, self.fixed_salary_edit)
         layout.addRow(S.LBL_HOURLY_RATE, self.hourly_rate_edit)
-        layout.addRow(S.LBL_HOUSING_HOURLY, self.housing_hourly_edit)
-        layout.addRow(S.LBL_FOOD_HOURLY, self.food_hourly_edit)
-        layout.addRow(S.LBL_HOUSING_FIXED, self.housing_fixed_edit)
-        layout.addRow(S.LBL_FOOD_FIXED, self.food_fixed_edit)
         layout.addRow("", self.married_check)
         layout.addRow(S.LBL_CHILDREN, self.children_spin)
         layout.addRow(S.LBL_SENIORITY, self.seniority_edit)
         layout.addRow(S.LBL_VACATION_BALANCE, self.vacation_balance_edit)
+        layout.addRow(S.LBL_ROLES, self.roles_list)
+        layout.addRow("", new_role_row)
         layout.addRow(S.LBL_NOTES, self.notes_edit)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
@@ -99,6 +108,39 @@ class EmployeeDialog(QDialog):
         if employee:
             self._populate_from_row(employee)
 
+    def _populate_roles_list(self, checked_roles: list[str]):
+        self.roles_list.clear()
+        for name in list_all_roles(self.conn):
+            item = QListWidgetItem(name)
+            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+            item.setCheckState(Qt.Checked if name in checked_roles else Qt.Unchecked)
+            self.roles_list.addItem(item)
+
+    def _on_add_role_clicked(self):
+        name = self.new_role_edit.text().strip()
+        if not name:
+            return
+        # If it's already in the list (existing or just-typed-twice), just check it instead of duplicating.
+        for i in range(self.roles_list.count()):
+            item = self.roles_list.item(i)
+            if item.text() == name:
+                item.setCheckState(Qt.Checked)
+                self.new_role_edit.clear()
+                return
+        item = QListWidgetItem(name)
+        item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+        item.setCheckState(Qt.Checked)
+        self.roles_list.addItem(item)
+        self.new_role_edit.clear()
+
+    def get_selected_roles(self) -> list[str]:
+        roles = []
+        for i in range(self.roles_list.count()):
+            item = self.roles_list.item(i)
+            if item.checkState() == Qt.Checked:
+                roles.append(item.text())
+        return roles
+
     def _populate_from_row(self, row: sqlite3.Row):
         self.name_edit.setText(row["full_name"] or "")
         # Find combo index by stored DB value
@@ -110,10 +152,6 @@ class EmployeeDialog(QDialog):
         self.exempt_check.setChecked(bool(row["is_exempt_from_shifts"]))
         self.fixed_salary_edit.setText(str(row["fixed_monthly_salary"]) if row["fixed_monthly_salary"] is not None else "")
         self.hourly_rate_edit.setText(str(row["base_hourly_rate"]) if row["base_hourly_rate"] is not None else "")
-        self.housing_hourly_edit.setText(str(row["housing_allowance_per_hour"] or 0))
-        self.food_hourly_edit.setText(str(row["food_allowance_per_hour"] or 0))
-        self.housing_fixed_edit.setText(str(row["fixed_housing_allowance"] or 0))
-        self.food_fixed_edit.setText(str(row["fixed_food_allowance"] or 0))
         self.married_check.setChecked(bool(row["is_married"]))
         self.children_spin.setValue(row["number_of_children"] or 0)
         self.seniority_edit.setText(str(row["seniority_allowance"] or 0))
@@ -135,10 +173,6 @@ class EmployeeDialog(QDialog):
             is_exempt_from_shifts=self.exempt_check.isChecked(),
             fixed_monthly_salary=_int_or_none(self.fixed_salary_edit.text()),
             base_hourly_rate=_int_or_none(self.hourly_rate_edit.text()),
-            housing_allowance_per_hour=_int_or_zero(self.housing_hourly_edit.text()),
-            food_allowance_per_hour=_int_or_zero(self.food_hourly_edit.text()),
-            fixed_housing_allowance=_int_or_zero(self.housing_fixed_edit.text()),
-            fixed_food_allowance=_int_or_zero(self.food_fixed_edit.text()),
             is_married=self.married_check.isChecked(),
             number_of_children=self.children_spin.value(),
             seniority_allowance=_int_or_zero(self.seniority_edit.text()),
@@ -149,10 +183,12 @@ class EmployeeDialog(QDialog):
 
 class EmployeesTab(QWidget):
     # Columns shown in the table (vertical header shows employee ID instead of row number).
+    # 'active' is intentionally NOT a visible column -- it stays in the DB for soft-delete
+    # history, but only the "Show inactive employees" checkbox + grayed-out rows surface it.
     COLUMNS = [
         S.COL_NAME, S.COL_TYPE, S.COL_DEVICE, S.COL_EXEMPT,
         S.COL_MONTHLY_SALARY, S.COL_HOURLY_RATE,
-        S.COL_MARRIED, S.COL_CHILDREN, S.COL_ACTIVE,
+        S.COL_MARRIED, S.COL_CHILDREN, S.COL_ROLES,
     ]
 
     def __init__(self, conn: sqlite3.Connection):
@@ -214,6 +250,8 @@ class EmployeesTab(QWidget):
                 "SELECT * FROM employees WHERE active = 1 ORDER BY id"
             ).fetchall()
 
+        roles_map = get_employee_roles_map(self.conn)
+
         self.table.setRowCount(len(rows))
         self._row_ids = []
         gray = QBrush(QColor(160, 160, 160))
@@ -226,6 +264,7 @@ class EmployeesTab(QWidget):
 
             type_display = S.EMP_TYPE_DISPLAY.get(row["employment_type"], row["employment_type"])
             is_inactive = not row["active"]
+            roles_display = "، ".join(roles_map.get(row["id"], []))
 
             cells = [
                 _text_item(row["full_name"] or ""),
@@ -236,7 +275,7 @@ class EmployeesTab(QWidget):
                 _numeric_item(row["base_hourly_rate"]),
                 _text_item(S.YES if row["is_married"] else S.NO),
                 _numeric_item(row["number_of_children"], display=str(row["number_of_children"] or 0)),
-                _text_item(S.STATUS_ACTIVE if row["active"] else S.STATUS_INACTIVE),
+                _text_item(roles_display),
             ]
             for c, item in enumerate(cells):
                 if is_inactive:
@@ -276,13 +315,14 @@ class EmployeesTab(QWidget):
             self.delete_btn.setText(S.DELETE_SELECTED)
 
     def on_add(self):
-        dlg = EmployeeDialog(self)
+        dlg = EmployeeDialog(self.conn, self)
         if dlg.exec() == QDialog.Accepted:
             emp = dlg.get_employee_input()
             if not emp.full_name:
                 QMessageBox.warning(self, S.MSG_MISSING_NAME, S.MSG_NAME_REQUIRED)
                 return
-            add_employee(self.conn, emp)
+            new_id = add_employee(self.conn, emp)
+            set_employee_roles(self.conn, new_id, dlg.get_selected_roles())
             self.load_data()
 
     def on_edit(self):
@@ -290,9 +330,10 @@ class EmployeesTab(QWidget):
         if emp is None:
             QMessageBox.information(self, S.MSG_NO_SELECTION, S.MSG_SELECT_EMPLOYEE)
             return
-        dlg = EmployeeDialog(self, employee=emp)
+        dlg = EmployeeDialog(self.conn, self, employee=emp)
         if dlg.exec() == QDialog.Accepted:
             update_employee(self.conn, emp["id"], dlg.get_employee_input())
+            set_employee_roles(self.conn, emp["id"], dlg.get_selected_roles())
             self.load_data()
 
     def on_delete(self):
