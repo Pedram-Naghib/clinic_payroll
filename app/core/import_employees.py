@@ -1,26 +1,24 @@
 """
-Import employees from a CSV file into the database.
+Import employees from a CSV or XLSX file into the database.
 
-Expected CSV columns (header row required, order doesn't matter):
+Expected columns (header row required, order doesn't matter).
+Housing and food allowances are now GLOBAL system_config values — do NOT include
+them per employee. They are silently ignored if present in your CSV, so old
+template files won't break the import.
 
     full_name, employment_type, device_enroll_no, is_exempt_from_shifts,
     fixed_monthly_salary, base_hourly_rate,
-    housing_allowance_per_hour, food_allowance_per_hour,
-    fixed_housing_allowance, fixed_food_allowance,
-    child_allowance_per_child, number_of_children,
-    seniority_allowance, marriage_family_allowance,
-    vacation_balance_days, notes
+    is_married, number_of_children,
+    seniority_allowance, vacation_balance_days, notes
 
 Notes:
 - employment_type must be exactly 'insured' or 'non_insured'
-- is_exempt_from_shifts: 1 or 0 (use 1 for Pegah Naghib-style exemptions)
-- Leave numeric fields blank for "not applicable" -> imported as 0 / NULL
+- is_exempt_from_shifts: 1 or 0
 - For insured staff: fill fixed_monthly_salary; base_hourly_rate will be
   auto-computed as fixed_monthly_salary / 192 if left blank.
 - For non-insured staff: fill base_hourly_rate directly.
-- device_enroll_no should match the Zaman Pardaz device's enrollment number
-  for that person (leave blank for staff not tracked by the device, e.g.
-  Pegah Naghib / Rahmani).
+- device_enroll_no should match the Zaman Pardaz device enrollment number.
+  Use blank or '0' for staff not tracked by the device.
 """
 
 from __future__ import annotations
@@ -61,10 +59,6 @@ def _row_to_employee_input(row: dict) -> EmployeeInput:
         is_exempt_from_shifts=_to_bool_int(row.get("is_exempt_from_shifts")),
         fixed_monthly_salary=_to_int(row.get("fixed_monthly_salary")),
         base_hourly_rate=_to_int(row.get("base_hourly_rate")),
-        housing_allowance_per_hour=_to_int(row.get("housing_allowance_per_hour")) or 0,
-        food_allowance_per_hour=_to_int(row.get("food_allowance_per_hour")) or 0,
-        fixed_housing_allowance=_to_int(row.get("fixed_housing_allowance")) or 0,
-        fixed_food_allowance=_to_int(row.get("fixed_food_allowance")) or 0,
         is_married=_to_bool_int(row.get("is_married")),
         number_of_children=_to_int(row.get("number_of_children")) or 0,
         seniority_allowance=_to_int(row.get("seniority_allowance")) or 0,
@@ -97,7 +91,7 @@ def import_employees_csv(conn: sqlite3.Connection, csv_path: str | Path) -> list
 
 
 def import_employees_xlsx(conn: sqlite3.Connection, xlsx_path: str | Path) -> list[tuple[str, int]]:
-    """Same as import_employees_csv but reads directly from an .xlsx file (first sheet)."""
+    """Same as import_employees_csv but reads from an .xlsx file (first sheet)."""
     import openpyxl
 
     xlsx_path = Path(xlsx_path)
@@ -110,7 +104,8 @@ def import_employees_xlsx(conn: sqlite3.Connection, xlsx_path: str | Path) -> li
 
     for row_values in rows_iter:
         row = dict(zip(headers, row_values))
-        if not (row.get("full_name") or "").strip() if isinstance(row.get("full_name"), str) else not row.get("full_name"):
+        name_val = row.get("full_name")
+        if not (str(name_val).strip() if name_val else ""):
             continue
         emp = _row_to_employee_input(row)
         new_id = add_employee(conn, emp)
@@ -120,11 +115,10 @@ def import_employees_xlsx(conn: sqlite3.Connection, xlsx_path: str | Path) -> li
 
 
 def write_template(csv_path: str | Path) -> None:
+    """Write a blank CSV template with the correct column headers."""
     headers = [
         "full_name", "employment_type", "device_enroll_no", "is_exempt_from_shifts",
         "fixed_monthly_salary", "base_hourly_rate",
-        "housing_allowance_per_hour", "food_allowance_per_hour",
-        "fixed_housing_allowance", "fixed_food_allowance",
         "is_married", "number_of_children",
         "seniority_allowance",
         "vacation_balance_days", "notes",
@@ -135,8 +129,6 @@ def write_template(csv_path: str | Path) -> None:
         writer.writerow([
             "Example Insured Person", "insured", "29", "0",
             "5542000", "",
-            "", "",
-            "30000000", "22000000",
             "1", "1",
             "10000000",
             "0", "",
@@ -144,8 +136,6 @@ def write_template(csv_path: str | Path) -> None:
         writer.writerow([
             "Example Non-Insured Person", "non_insured", "10", "0",
             "", "756000",
-            "156250", "114500",
-            "", "",
             "0", "0",
             "0",
             "0", "",
