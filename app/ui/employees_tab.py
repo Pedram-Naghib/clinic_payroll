@@ -14,6 +14,11 @@ from app.core.employees import EmployeeInput, add_employee, update_employee, del
 from app.core.roles import list_all_roles, get_employee_roles, get_employee_roles_map, set_employee_roles
 from app.ui import strings_fa as S
 
+# Store the employee DB id in this Qt role on the first column's cell item,
+# so it survives column sorting (vertical header items do NOT move with rows
+# when QTableWidget sorts -- only cell items do).
+_EMP_ID_ROLE = Qt.UserRole
+
 
 def _numeric_item(value: int | float | None, display: str | None = None) -> QTableWidgetItem:
     """Item that sorts numerically (uses EditRole) but displays formatted text."""
@@ -216,6 +221,8 @@ class EmployeesTab(QWidget):
         self.table.setSortingEnabled(True)  # click headers to sort
         # vertical header shows the actual employee.id, not Qt's row counter
         self.table.verticalHeader().setVisible(True)
+        # Single connection here — NOT inside load_data() to avoid stacking
+        self.table.itemSelectionChanged.connect(self._refresh_delete_button)
         layout.addWidget(self.table)
 
         btn_row = QHBoxLayout()
@@ -258,16 +265,20 @@ class EmployeesTab(QWidget):
 
         for r, row in enumerate(rows):
             self._row_ids.append(row["id"])
-            # vertical header = employee.id (the user's request: ID as row index)
-            id_header = QTableWidgetItem(str(row["id"]))
-            self.table.setVerticalHeaderItem(r, id_header)
+            # Employee ID is stored in the first cell's UserRole so it
+            # survives column sorting (vertical header items do NOT move with
+            # rows when Qt sorts -- only cell items do).
+            self.table.setVerticalHeaderItem(r, QTableWidgetItem(str(row["id"])))
 
             type_display = S.EMP_TYPE_DISPLAY.get(row["employment_type"], row["employment_type"])
             is_inactive = not row["active"]
             roles_display = "، ".join(roles_map.get(row["id"], []))
 
+            name_item = _text_item(row["full_name"] or "")
+            name_item.setData(_EMP_ID_ROLE, row["id"])  # survives sort
+
             cells = [
-                _text_item(row["full_name"] or ""),
+                name_item,
                 _text_item(type_display),
                 _text_item(row["device_enroll_no"] or ""),
                 _text_item(S.YES if row["is_exempt_from_shifts"] else S.NO),
@@ -283,23 +294,20 @@ class EmployeesTab(QWidget):
                 self.table.setItem(r, c, item)
 
         self.table.setSortingEnabled(True)
-        # Update delete button label depending on whether selection is active/inactive
-        self.table.itemSelectionChanged.connect(self._refresh_delete_button)
-        self._refresh_delete_button()
+        self._refresh_delete_button()  # update button label for current selection
 
     def _selected_employee_id(self) -> int | None:
         row = self.table.currentRow()
-        if row < 0 or row >= len(self._row_ids):
+        if row < 0:
             return None
-        # Important: after sorting, row indexes don't match insertion order anymore.
-        # The vertical header item still holds the employee ID — read from there.
-        header_item = self.table.verticalHeaderItem(row)
-        if header_item is None:
+        # Read from the first cell's UserRole -- this is the only value that
+        # reliably survives column sorting (vertical header items do not move
+        # with rows when Qt reorders them during sort).
+        name_item = self.table.item(row, 0)
+        if name_item is None:
             return None
-        try:
-            return int(header_item.text())
-        except ValueError:
-            return None
+        emp_id = name_item.data(_EMP_ID_ROLE)
+        return int(emp_id) if emp_id is not None else None
 
     def _selected_employee_row(self) -> sqlite3.Row | None:
         emp_id = self._selected_employee_id()
