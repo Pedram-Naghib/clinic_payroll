@@ -31,9 +31,9 @@ def init_db(db_path: str | Path = DB_PATH, schema_path: str | Path = SCHEMA_PATH
         """
         INSERT OR IGNORE INTO shift_definitions (code, label, start_time, end_time, crosses_midnight)
         VALUES
-            ('M', 'Morning', '07:00', '13:30', 0),
-            ('E', 'Evening', '13:30', '20:00', 0),
-            ('N', 'Night',   '20:00', '07:00', 1)
+            ('M', 'Morning', '08:00', '14:00', 0),
+            ('E', 'Evening', '14:00', '20:00', 0),
+            ('N', 'Night',   '20:00', '08:00', 1)
         """
     )
 

@@ -31,7 +31,7 @@ from datetime import datetime, timedelta
 
 
 DUPLICATE_PUNCH_WINDOW_MINUTES = 3
-MAX_PLAUSIBLE_SESSION_HOURS = 16
+MAX_PLAUSIBLE_SESSION_HOURS = 18  # EN (Evening+Night) double-shift = 14:00->08:00 next day = 18h exactly
 MIN_PLAUSIBLE_SESSION_MINUTES = 5
 
 
