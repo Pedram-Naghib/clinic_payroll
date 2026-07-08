@@ -229,6 +229,8 @@ ATTENDANCE_INFO = (
 BTN_IMPORT_PUNCHES = "بارگذاری فایل دستگاه"
 BTN_COMPUTE_HOURS = "محاسبه ساعات کار"
 BTN_RELINK_PUNCHES = "اتصال مجدد رکوردهای بدون مالک"
+BTN_CLEAR_MONTH_PUNCHES = "پاک‌کردن رکوردهای این ماه"
+BTN_CLEAR_ALL_PUNCHES = "پاک‌کردن همهٔ رکوردها"
 LBL_YEAR = "سال"
 LBL_MONTH = "ماه"
 
@@ -260,6 +262,18 @@ MSG_UNMATCHED_DETAILS = (
 )
 MSG_RELINK_RESULT = "{n} رکورد به کارمندان متصل شد."
 MSG_NO_DATA = "ابتدا یک فایل دستگاه بارگذاری کنید."
+
+MSG_CONFIRM_CLEAR_MONTH = (
+    "{n:,} رکورد دستگاه برای {month_label} {year} حذف می‌شود.\n"
+    "این عمل قابل بازگشت نیست. ادامه می‌دهید؟"
+)
+MSG_CONFIRM_CLEAR_ALL = (
+    "همهٔ {n:,} رکورد دستگاه در کل دیتابیس حذف می‌شود.\n"
+    "این عمل قابل بازگشت نیست. ادامه می‌دهید؟"
+)
+MSG_CLEAR_MONTH_RESULT = "{n:,} رکورد برای {month_label} {year} حذف شد."
+MSG_CLEAR_ALL_RESULT = "همهٔ {n:,} رکورد حذف شد."
+MSG_NOTHING_TO_CLEAR = "رکوردی برای حذف در این بازه یافت نشد."
 MSG_COMPUTATION_DONE = "محاسبه برای {month_label} {year} تکمیل شد."
 
 

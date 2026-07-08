@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 
 from app.core.punch_importer import (
     import_punches_file, relink_unmatched_punches, punch_summary,
+    delete_punches_in_period, delete_all_punches,
 )
 from app.core.attendance_engine import compute_and_persist_attendance, EmployeeAttendance
 from app.core.jalali import jalali_to_gregorian, gregorian_to_jalali
@@ -64,6 +65,14 @@ class AttendanceTab(QWidget):
         relink_btn = QPushButton(S.BTN_RELINK_PUNCHES)
         relink_btn.clicked.connect(self.on_relink)
         controls.addWidget(relink_btn)
+
+        clear_month_btn = QPushButton(S.BTN_CLEAR_MONTH_PUNCHES)
+        clear_month_btn.clicked.connect(self.on_clear_month)
+        controls.addWidget(clear_month_btn)
+
+        clear_all_btn = QPushButton(S.BTN_CLEAR_ALL_PUNCHES)
+        clear_all_btn.clicked.connect(self.on_clear_all)
+        controls.addWidget(clear_all_btn)
 
         controls.addStretch()
 
@@ -176,19 +185,79 @@ class AttendanceTab(QWidget):
         QMessageBox.information(self, S.SAVED, S.MSG_RELINK_RESULT.format(n=n))
         self._refresh_summary()
 
-    def on_compute(self):
+    def _selected_period(self):
+        """Gregorian [start, end) datetimes for the currently selected Jalali month."""
         jy = self.year_combo.currentData()
         jm = self.month_combo.currentData()
         if jy is None or jm is None:
-            return
-        # Convert Jalali month boundaries to Gregorian datetimes
+            return None
         period_start_d = jalali_to_gregorian(jy, jm, 1)
         if jm < 12:
             period_end_d = jalali_to_gregorian(jy, jm + 1, 1)
         else:
             period_end_d = jalali_to_gregorian(jy + 1, 1, 1)
-        period_start = datetime.combine(period_start_d, time(0, 0, 0))
-        period_end = datetime.combine(period_end_d, time(0, 0, 0))
+        return (
+            datetime.combine(period_start_d, time(0, 0, 0)),
+            datetime.combine(period_end_d, time(0, 0, 0)),
+        )
+
+    def on_clear_month(self):
+        period = self._selected_period()
+        if period is None:
+            return
+        period_start, period_end = period
+        n = self.conn.execute(
+            "SELECT COUNT(*) AS n FROM raw_punches WHERE punch_datetime >= ? AND punch_datetime < ?",
+            (period_start.strftime("%Y-%m-%d %H:%M:%S"), period_end.strftime("%Y-%m-%d %H:%M:%S")),
+        ).fetchone()["n"]
+        if n == 0:
+            QMessageBox.information(self, S.MSG_NO_DATA, S.MSG_NOTHING_TO_CLEAR)
+            return
+
+        jy = self.year_combo.currentData()
+        month_label = self.month_combo.currentText()
+        confirm = QMessageBox.question(
+            self, S.MSG_CONFIRM_DELETE,
+            S.MSG_CONFIRM_CLEAR_MONTH.format(n=n, month_label=month_label, year=jy),
+            QMessageBox.Yes | QMessageBox.No,
+        )
+        if confirm != QMessageBox.Yes:
+            return
+
+        deleted = delete_punches_in_period(self.conn, period_start, period_end)
+        QMessageBox.information(
+            self, S.SAVED,
+            S.MSG_CLEAR_MONTH_RESULT.format(n=deleted, month_label=month_label, year=jy),
+        )
+        self._refresh_summary()
+        self.table.setRowCount(0)
+        self._last_results = []
+
+    def on_clear_all(self):
+        s = punch_summary(self.conn)
+        if s["total"] == 0:
+            QMessageBox.information(self, S.MSG_NO_DATA, S.MSG_NOTHING_TO_CLEAR)
+            return
+
+        confirm = QMessageBox.question(
+            self, S.MSG_CONFIRM_DELETE,
+            S.MSG_CONFIRM_CLEAR_ALL.format(n=s["total"]),
+            QMessageBox.Yes | QMessageBox.No,
+        )
+        if confirm != QMessageBox.Yes:
+            return
+
+        deleted = delete_all_punches(self.conn)
+        QMessageBox.information(self, S.SAVED, S.MSG_CLEAR_ALL_RESULT.format(n=deleted))
+        self._refresh_summary()
+        self.table.setRowCount(0)
+        self._last_results = []
+
+    def on_compute(self):
+        period = self._selected_period()
+        if period is None:
+            return
+        period_start, period_end = period
 
         results = compute_and_persist_attendance(self.conn, period_start, period_end)
         self._last_results = results

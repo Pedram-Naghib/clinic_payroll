@@ -8,6 +8,9 @@ Import raw punches from Zaman Pardaz .TXT exports into the database.
 - Punches with an enroll-no not matching any employee are still stored,
   with employee_id = NULL. They can be retroactively linked later
   via relink_unmatched_punches() once the employee record exists.
+- delete_punches_in_period() / delete_all_punches() support the Attendance
+  tab's "clear records" buttons, used for re-importing a corrected device
+  file for a given month, or resetting entirely.
 """
 
 from __future__ import annotations
@@ -82,6 +85,29 @@ def relink_unmatched_punches(conn: sqlite3.Connection) -> int:
            )
            WHERE employee_id IS NULL"""
     )
+    conn.commit()
+    return cur.rowcount
+
+
+def delete_punches_in_period(conn: sqlite3.Connection, period_start, period_end) -> int:
+    """Delete all raw_punches with punch_datetime in [period_start, period_end).
+
+    Used by the "clear this month's records" button so a device file can be
+    re-imported cleanly for a single Jalali month without touching any other
+    period's data. Returns the number of rows deleted.
+    """
+    cur = conn.execute(
+        """DELETE FROM raw_punches
+           WHERE punch_datetime >= ? AND punch_datetime < ?""",
+        (period_start.strftime("%Y-%m-%d %H:%M:%S"), period_end.strftime("%Y-%m-%d %H:%M:%S")),
+    )
+    conn.commit()
+    return cur.rowcount
+
+
+def delete_all_punches(conn: sqlite3.Connection) -> int:
+    """Wipe every row from raw_punches (full reset). Returns rows deleted."""
+    cur = conn.execute("DELETE FROM raw_punches")
     conn.commit()
     return cur.rowcount
 
