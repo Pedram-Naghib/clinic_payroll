@@ -149,8 +149,8 @@ CONFIG_LABELS = {
 
 CONFIG_DESCRIPTIONS = {
     "base_monthly_hours": "ساعت کاری استاندارد ماهانه برای کارکنان بیمه‌شده",
-    "overtime_premium_pct": "درصد اضافه روی دستمزد ساعتی پایه برای ساعات H (Help)",
-    "holiday_premium_pct": "درصد اضافه روی دستمزد ساعتی پایه برای شیفت تعطیل (ت) — بیمه نشده",
+    "overtime_premium_pct": "درصد اضافه روی دستمزد ساعتی پایه برای ساعات کارکرد بیش از سقف ماهانه (اضافه‌کاری)",
+    "holiday_premium_pct": "درصد اضافه روی دستمزد ساعتی پایه برای ساعات کارکرد در روزهای تعطیل رسمی — شامل بیمه‌شده و بیمه نشده، به‌جز شیفت شب",
     "insurance_deduction_pct": "از کل درآمد بیمه‌شده کسر می‌شود (به جز حق اولاد و اضافه‌کاری)",
     "fixed_marriage_allowance": "مبلغ ثابتی که در صورت متأهل بودن کارمند اضافه می‌شود",
     "fixed_child_allowance": "در تعداد فرزندان کارمند ضرب می‌شود",
@@ -342,6 +342,7 @@ PAYROLL_INFO = (
 
 BTN_RUN_PAYROLL = "اجرای محاسبه"
 BTN_SAVE_PAYROLL_RUN = "ذخیرهٔ این اجرا"
+BTN_SHOW_PAYSLIP = "فیش حقوقی"
 
 COL_PR_NAME = "نام"
 COL_PR_TYPE = "نوع استخدام"
@@ -352,8 +353,13 @@ COL_PR_BASE_PAY = "حقوق پایه"
 COL_PR_OVERTIME_PAY = "مزد اضافه‌کاری"
 COL_PR_HOLIDAY_PAY = "مزد تعطیل‌کاری"
 COL_PR_ALLOWANCES = "جمع مزایا"
+COL_PR_LEAVE_COVERED = "پوشش از مرخصی (روز)"
+COL_PR_UNDER_HOURS = "کمبود کارکرد"
 COL_PR_INSURANCE = "کسر بیمه"
 COL_PR_TOTAL = "خالص پرداختی"
+
+TOOLTIP_LEAVE_COVERED = "کسری ساعت کاری این ماه از موجودی مرخصی استحقاقی کارمند پوشش داده شد -- بدون کسر از حقوق."
+TOOLTIP_UNDER_HOURS = "بخشی از کسری ساعت کاری که موجودی مرخصی کافی برای پوشش آن نبود و از خالص پرداختی کسر شده است."
 
 LBL_PAYROLL_TOTAL = "جمع کل خالص پرداختی این ماه: {total:,} ریال"
 MSG_SKIPPED_EMPLOYEES = (
@@ -377,3 +383,66 @@ LBL_ROLES = "نقش‌های شغلی:"
 LBL_NEW_ROLE_HINT = "نقش جدید را تایپ کنید..."
 BTN_ADD_ROLE = "افزودن"
 MSG_ROLE_ALREADY_EXISTS = "این نقش قبلاً در فهرست وجود دارد."
+
+
+# ============================================================
+# Leave tab (مرخصی)
+# ============================================================
+
+TAB_LEAVE = "مرخصی"
+
+LEAVE_INFO = (
+    "ثبت و پیگیری مرخصی استحقاقی کارکنان (حداکثر سقف سالانه قابل تنظیم در «تنظیمات»، "
+    "پیش‌فرض ۳۰ روز در سال). کسری ساعت کاری ماهانهٔ کارکنان بیمه‌شده به‌صورت خودکار و "
+    "در زمان ذخیرهٔ اجرای حقوق از همین موجودی کسر می‌شود (ردیف‌های «خودکار» در جدول زیر)."
+)
+
+LEAVE_TYPE_VACATION = "استحقاقی"
+LEAVE_TYPE_MEDICAL = "استعلاجی"
+LEAVE_TYPE_DISPLAY = {"vacation": LEAVE_TYPE_VACATION, "medical": LEAVE_TYPE_MEDICAL}
+
+LEAVE_SOURCE_MANUAL = "دستی"
+LEAVE_SOURCE_AUTO = "خودکار (کسری کارکرد)"
+LEAVE_SOURCE_DISPLAY = {"manual": LEAVE_SOURCE_MANUAL, "auto_shortfall": LEAVE_SOURCE_AUTO}
+
+LEAVE_STATUS_APPROVED = "تأیید شده"
+LEAVE_STATUS_PENDING = "در انتظار"
+LEAVE_STATUS_REJECTED = "رد شده"
+LEAVE_STATUS_DISPLAY = {
+    "approved": LEAVE_STATUS_APPROVED, "pending": LEAVE_STATUS_PENDING, "rejected": LEAVE_STATUS_REJECTED,
+}
+
+LBL_LEAVE_TYPE = "نوع مرخصی:"
+LBL_START_DATE = "تاریخ شروع (شمسی):"
+LBL_END_DATE = "تاریخ پایان (شمسی):"
+LBL_DAYS_COUNT = "تعداد روز:"
+LBL_LEAVE_NOTES = "یادداشت (اختیاری):"
+LBL_LEAVE_BALANCE = "موجودی مرخصی {name}: {balance:g} روز  ·  سقف سالانه: {cap:g} روز  ·  استفاده‌شده امسال: {used:g} روز"
+LBL_LEAVE_BALANCE_EMPTY = "موجودی مرخصی: —"
+
+BTN_SAVE_LEAVE = "ثبت مرخصی"
+BTN_DELETE_LEAVE = "حذف انتخاب‌شده"
+BTN_SETTLE_YEAR_END = "تسویهٔ پایان سال (بازخرید مرخصی)"
+
+COL_LEAVE_EMPLOYEE = "کارمند"
+COL_LEAVE_TYPE = "نوع"
+COL_LEAVE_START = "از تاریخ"
+COL_LEAVE_END = "تا تاریخ"
+COL_LEAVE_DAYS = "تعداد روز"
+COL_LEAVE_STATUS = "وضعیت"
+COL_LEAVE_SOURCE = "منبع"
+COL_LEAVE_NOTES = "یادداشت"
+
+MSG_LEAVE_SAVED = "مرخصی با موفقیت ثبت شد."
+MSG_LEAVE_ERROR = "خطا در ثبت مرخصی"
+MSG_NO_LEAVE_SELECTION = "ابتدا یک ردیف را از جدول انتخاب کنید."
+MSG_CONFIRM_DELETE_LEAVE = "این مرخصی برای همیشه حذف و موجودی مربوطه بازگردانده می‌شود. ادامه می‌دهید؟"
+MSG_CANNOT_DELETE_LEAVE = "امکان حذف مستقیم"
+MSG_CONFIRM_SETTLE = (
+    "تسویهٔ پایان سال برای {name}:\n"
+    "موجودی فعلی: {balance:g} روز\n"
+    "مبلغ قابل پرداخت (بازخرید): {amount:,} ریال\n\n"
+    "با تأیید، موجودی مرخصی این کارمند صفر می‌شود. ادامه می‌دهید؟"
+)
+MSG_SETTLE_RESULT = "مبلغ {amount:,} ریال بازخرید مرخصی برای {name} محاسبه و موجودی صفر شد."
+MSG_SETTLE_NO_BALANCE = "این کارمند موجودی مرخصی قابل بازخرید ندارد."

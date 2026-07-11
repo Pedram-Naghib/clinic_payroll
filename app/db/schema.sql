@@ -82,7 +82,18 @@ CREATE TABLE IF NOT EXISTS allowance_definitions (
 );
 
 -- ===================== PLANNED SHIFTS (manager's manual schedule) =====================
--- One row per employee per calendar day. shift_code: M, E, N, H, ت, V(acation), S(ick), A(bsent), null=off
+-- One row per employee per calendar day. shift_code meaning, per the
+-- manager's paper shift grid: M=Morning, E=Evening, N=Night, H=Holiday (a
+-- full calendar day the manager has marked as a clinic holiday) -- also ت,
+-- V(acation), S(ick), A(bsent), null=off. Can hold combos like 'M' + 'E' ->
+-- store as 'ME'.
+-- NOTE: there is currently no importer reading this table (it's a schema
+-- stub for a future manual-grid entry UI) -- today, holiday-ness is instead
+-- computed automatically from the `iranian_holidays` table (app.core.holidays)
+-- and joined against `daily_attendance.work_date` in
+-- attendance_engine.build_payroll_inputs(), which also excludes night ('N')
+-- shifts from holiday premium eligibility for both employment types
+-- (clinic policy: night shifts never earn the holiday premium).
 CREATE TABLE IF NOT EXISTS planned_shifts (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     employee_id     INTEGER NOT NULL REFERENCES employees(id),
@@ -95,7 +106,11 @@ CREATE TABLE IF NOT EXISTS planned_shifts (
     UNIQUE(employee_id, work_date)
 );
 
--- Default shift time windows (configurable), used to evaluate punches against M/E/N
+-- Default shift time windows (Owner-configurable). Used both to evaluate
+-- punches against M/E/N and, critically, by attendance_engine's night-shift
+-- classifier (_is_night_shift) to decide holiday-premium eligibility -- a
+-- session clocking in within the 'N' window is never treated as a holiday
+-- shift, regardless of what calendar date it falls on.
 CREATE TABLE IF NOT EXISTS shift_definitions (
     code        TEXT PRIMARY KEY,   -- M, E, N
     label       TEXT NOT NULL,

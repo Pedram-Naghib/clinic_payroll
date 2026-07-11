@@ -245,6 +245,29 @@ def compute_and_persist_attendance(
     return results
 
 
+def _load_shift_windows(conn: sqlite3.Connection) -> dict[str, tuple[int, int, bool]]:
+    """Returns {code: (start_hour, end_hour, crosses_midnight)} read from the
+    (Owner-editable) shift_definitions table."""
+    windows: dict[str, tuple[int, int, bool]] = {}
+    for row in conn.execute("SELECT code, start_time, end_time, crosses_midnight FROM shift_definitions"):
+        start_h = int(str(row["start_time"]).split(":")[0])
+        end_h = int(str(row["end_time"]).split(":")[0])
+        windows[row["code"]] = (start_h, end_h, bool(row["crosses_midnight"]))
+    return windows
+
+
+def _is_night_shift(in_hour: int, windows: dict[str, tuple[int, int, bool]]) -> bool:
+    """True if a session clocking in at `in_hour` (0-23) falls inside the
+    'N' (night) shift window. Night shifts are never eligible for holiday
+    premium (clinic policy), regardless of what calendar date they land on.
+    Falls back to the clinic's default 20:00->08:00 window if shift_definitions
+    is somehow missing the 'N' row (it's seeded by database.py)."""
+    start_h, end_h, crosses = windows.get("N", (20, 8, True))
+    if crosses:
+        return in_hour >= start_h or in_hour < end_h
+    return start_h <= in_hour < end_h
+
+
 def build_payroll_inputs(
     conn: sqlite3.Connection,
     period_start: datetime,
@@ -257,32 +280,45 @@ def build_payroll_inputs(
     Call compute_and_persist_attendance() for this period FIRST so
     daily_attendance is up to date, then call this.
 
-    holiday_hours is computed by joining daily_attendance.work_date against
-    iranian_holidays (see app.core.holidays) -- it is a SUBSET of
-    worked_hours, not additional, matching how payroll_engine.py already
-    expects holiday_hours to be passed (see its non_insured branch:
-    regular_hours = worked_hours - holiday_hours)."""
+    holiday_hours is a SUBSET of worked_hours, not additional, matching how
+    payroll_engine.py expects holiday_hours to be passed. A day only counts
+    toward holiday_hours if (a) its work_date is in iranian_holidays AND
+    (b) the day's first punch-in does NOT fall in the night-shift ('N')
+    window -- night shifts never earn holiday premium, for either
+    employment type, per clinic policy. This is computed in Python (not a
+    SQL join) because the night-shift classification needs shift_definitions'
+    hour ranges, not just a date match."""
     start_date = period_start.date().isoformat()
     end_date = (period_end.date()).isoformat()  # period_end is exclusive upstream
 
-    rows = conn.execute(
-        """
-        SELECT
-            da.employee_id,
-            COALESCE(SUM(da.worked_hours), 0) AS total_hours,
-            COALESCE(SUM(
-                CASE WHEN ih.work_date IS NOT NULL THEN da.worked_hours ELSE 0 END
-            ), 0) AS holiday_hours
-        FROM daily_attendance da
-        LEFT JOIN iranian_holidays ih ON ih.work_date = da.work_date
-        WHERE da.work_date >= ? AND da.work_date < ?
-        GROUP BY da.employee_id
-        """,
+    holiday_dates = {
+        row[0] for row in conn.execute(
+            "SELECT work_date FROM iranian_holidays WHERE work_date >= ? AND work_date < ?",
+            (start_date, end_date),
+        )
+    }
+    windows = _load_shift_windows(conn)
+
+    totals: dict[int, float] = {}
+    holiday_totals: dict[int, float] = {}
+    for row in conn.execute(
+        """SELECT employee_id, work_date, worked_hours, first_in
+           FROM daily_attendance
+           WHERE work_date >= ? AND work_date < ?""",
         (start_date, end_date),
-    ).fetchall()
+    ):
+        emp_id = row["employee_id"]
+        hours = row["worked_hours"] or 0.0
+        totals[emp_id] = totals.get(emp_id, 0.0) + hours
+
+        if hours > 0 and row["first_in"] and row["work_date"] in holiday_dates:
+            in_hour = datetime.strptime(row["first_in"], "%Y-%m-%d %H:%M:%S").hour
+            if not _is_night_shift(in_hour, windows):
+                holiday_totals[emp_id] = holiday_totals.get(emp_id, 0.0) + hours
 
     inputs: dict[int, tuple[float, float]] = {
-        row[0]: (round(row[1], 2), round(row[2], 2)) for row in rows
+        emp_id: (round(total, 2), round(holiday_totals.get(emp_id, 0.0), 2))
+        for emp_id, total in totals.items()
     }
 
     # Active employees with no daily_attendance rows this period (fixed-pay

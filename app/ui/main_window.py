@@ -13,12 +13,14 @@ from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication, QMainWindow, QTabWidget
 
 from app.db.database import get_connection, init_db
+from app.db.migrations.migrate_v3_leave_payslip import migrate as migrate_v3
 from app.core.holidays import run_startup_holiday_seed
 from app.core.jalali import gregorian_to_jalali
 from app.ui.config_tab import ConfigTab
 from app.ui.allowances_tab import AllowancesTab
 from app.ui.employees_tab import EmployeesTab
 from app.ui.attendance_tab import AttendanceTab
+from app.ui.leave_tab import LeaveTab
 from app.ui.commissions_tab import CommissionsTab
 from app.ui.payroll_tab import PayrollTab
 from app.ui import strings_fa as S
@@ -42,6 +44,7 @@ class MainWindow(QMainWindow):
         tabs = QTabWidget()
         self.employees_tab = EmployeesTab(self.conn)
         self.attendance_tab = AttendanceTab(self.conn)
+        self.leave_tab = LeaveTab(self.conn)
         self.allowances_tab = AllowancesTab(self.conn)
         self.commissions_tab = CommissionsTab(self.conn)
         self.payroll_tab = PayrollTab(self.conn)
@@ -49,6 +52,7 @@ class MainWindow(QMainWindow):
 
         tabs.addTab(self.employees_tab, S.TAB_EMPLOYEES)
         tabs.addTab(self.attendance_tab, S.TAB_ATTENDANCE)
+        tabs.addTab(self.leave_tab, S.TAB_LEAVE)
         tabs.addTab(self.allowances_tab, S.TAB_ALLOWANCES)
         tabs.addTab(self.commissions_tab, S.TAB_COMMISSIONS)
         tabs.addTab(self.payroll_tab, S.TAB_PAYROLL)
@@ -59,6 +63,11 @@ class MainWindow(QMainWindow):
 
 def main():
     init_db()
+    conn = get_connection()
+    try:
+        migrate_v3(conn)
+    finally:
+        conn.close()
     app = QApplication(sys.argv)
     # App-wide RTL + a Persian-friendly font shipped on most systems.
     app.setLayoutDirection(Qt.RightToLeft)

@@ -40,8 +40,8 @@ def init_db(db_path: str | Path = DB_PATH, schema_path: str | Path = SCHEMA_PATH
     # Seed default global config values (Owner can edit these later via the dashboard)
     default_config = [
         ("base_monthly_hours", "192", "int", "Base Monthly Hours", "Standard hours/month for insured staff", "payroll"),
-        ("overtime_premium_pct", "40", "int", "Overtime Premium (%)", "Extra % over base hourly rate for hours beyond base_monthly_hours ('H')", "payroll"),
-        ("holiday_premium_pct", "30", "int", "Holiday Premium (%)", "Extra % over base hourly rate for holiday shifts ('ت', non-insured)", "payroll"),
+        ("overtime_premium_pct", "40", "int", "Overtime Premium (%)", "Extra % over base hourly rate for hours worked beyond base_monthly_hours", "payroll"),
+        ("holiday_premium_pct", "30", "int", "Holiday Premium (%)", "Extra % over base hourly rate for hours worked on an official holiday date -- both employment types, but never for night ('N') shifts", "payroll"),
         ("insurance_deduction_pct", "7", "int", "Insurance Deduction (%)", "Deducted from insured staff's total earnings, excluding child allowance & overtime", "payroll"),
         ("fixed_marriage_allowance", "0", "int", "Marriage Allowance (fixed)", "Flat amount added if employee.is_married = 1", "allowances"),
         ("fixed_child_allowance", "0", "int", "Child Allowance (per child)", "Multiplied by employee.number_of_children", "allowances"),

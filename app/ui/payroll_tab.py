@@ -13,6 +13,7 @@ from app.core.attendance_engine import compute_and_persist_attendance, build_pay
 from app.core.payroll_engine import calculate_payroll_batch, PayrollResult
 from app.core.payroll_runs import find_existing_run, save_payroll_run
 from app.core.jalali import jalali_to_gregorian
+from app.ui.payslip_view import open_payslip_dialog
 from app.ui import strings_fa as S
 
 
@@ -34,11 +35,19 @@ def _text_item(text: str) -> QTableWidgetItem:
     return item
 
 
+# Store the employee DB id in this Qt role on the first column's cell item,
+# so it survives column sorting (vertical header items do NOT move with
+# rows when QTableWidget sorts -- only cell items do; see employees_tab.py
+# for the same fix applied there).
+_EMP_ID_ROLE = Qt.UserRole
+
+
 class PayrollTab(QWidget):
     COLUMNS = [
         S.COL_PR_NAME, S.COL_PR_TYPE, S.COL_PR_REGULAR_HOURS, S.COL_PR_OVERTIME_HOURS,
         S.COL_PR_HOLIDAY_HOURS, S.COL_PR_BASE_PAY, S.COL_PR_OVERTIME_PAY,
-        S.COL_PR_HOLIDAY_PAY, S.COL_PR_ALLOWANCES, S.COL_PR_INSURANCE, S.COL_PR_TOTAL,
+        S.COL_PR_HOLIDAY_PAY, S.COL_PR_ALLOWANCES, S.COL_PR_LEAVE_COVERED,
+        S.COL_PR_UNDER_HOURS, S.COL_PR_INSURANCE, S.COL_PR_TOTAL,
     ]
 
     def __init__(self, conn: sqlite3.Connection):
@@ -47,6 +56,8 @@ class PayrollTab(QWidget):
         self.setLayoutDirection(Qt.RightToLeft)
         self._last_results: list[PayrollResult] = []
         self._last_period: tuple[str, str] | None = None  # (period_start, period_end) ISO
+        self._last_period_dt: tuple[datetime, datetime] | None = None
+        self._last_period_label: str = ""
 
         layout = QVBoxLayout(self)
 
@@ -74,6 +85,11 @@ class PayrollTab(QWidget):
         controls.addWidget(run_btn)
 
         controls.addStretch()
+
+        self.payslip_btn = QPushButton(S.BTN_SHOW_PAYSLIP)
+        self.payslip_btn.clicked.connect(self.on_payslip)
+        self.payslip_btn.setEnabled(False)
+        controls.addWidget(self.payslip_btn)
 
         self.save_btn = QPushButton(S.BTN_SAVE_PAYROLL_RUN)
         self.save_btn.clicked.connect(self.on_save)
@@ -136,11 +152,14 @@ class PayrollTab(QWidget):
 
         self._last_results = results
         self._last_period = (period_start.date().isoformat(), period_end.date().isoformat())
+        self._last_period_dt = (period_start, period_end)
+        self._last_period_label = f"{self.month_combo.currentText()} {jy}"
 
         self._render_results(results)
         self._render_skipped(skipped_ids)
 
         self.save_btn.setEnabled(bool(results))
+        self.payslip_btn.setEnabled(bool(results))
 
     def _render_skipped(self, skipped_ids: list[int]):
         if not skipped_ids:
@@ -164,12 +183,19 @@ class PayrollTab(QWidget):
         grand_total = 0
         for r, res in enumerate(results):
             grand_total += res.total_pay
+            # Vertical header is a display-only convenience -- the row's real
+            # employee id is stored in the name cell's UserRole below, since
+            # vertical header items don't move with rows when the table is
+            # sorted (see _selected_employee_id / employees_tab.py).
             self.table.setVerticalHeaderItem(r, QTableWidgetItem(str(res.employee_id)))
 
             type_display = S.EMP_TYPE_DISPLAY.get(res.employment_type, res.employment_type)
 
+            name_item = _text_item(res.full_name)
+            name_item.setData(_EMP_ID_ROLE, res.employee_id)
+
             cells = [
-                _text_item(res.full_name),
+                name_item,
                 _text_item(type_display),
                 _numeric_item(res.regular_hours, display=f"{res.regular_hours:.1f}"),
                 _numeric_item(res.overtime_hours, display=f"{res.overtime_hours:.1f}"),
@@ -178,6 +204,8 @@ class PayrollTab(QWidget):
                 _numeric_item(res.overtime_pay),
                 _numeric_item(res.holiday_pay),
                 _numeric_item(res.allowances_total),
+                _numeric_item(res.leave_days_covered, display=f"{res.leave_days_covered:g}"),
+                _numeric_item(res.under_hours_deduction),
                 _numeric_item(res.insurance_deduction),
                 _numeric_item(res.total_pay),
             ]
@@ -185,6 +213,10 @@ class PayrollTab(QWidget):
                 cells[8].setToolTip(
                     "\n".join(f"{a.label}: {a.amount:,}" for a in res.allowances)
                 )
+            if res.leave_days_covered:
+                cells[9].setToolTip(S.TOOLTIP_LEAVE_COVERED)
+            if res.under_hours_deduction:
+                cells[10].setToolTip(S.TOOLTIP_UNDER_HOURS)
             for c, item in enumerate(cells):
                 if res.pay_mode == "fixed_no_clocking":
                     item.setForeground(gray)
@@ -192,6 +224,27 @@ class PayrollTab(QWidget):
 
         self.table.setSortingEnabled(True)
         self.total_label.setText(S.LBL_PAYROLL_TOTAL.format(total=grand_total))
+
+    def _selected_employee_id(self) -> int | None:
+        row = self.table.currentRow()
+        if row < 0:
+            return None
+        name_item = self.table.item(row, 0)
+        if name_item is None:
+            return None
+        emp_id = name_item.data(_EMP_ID_ROLE)
+        return int(emp_id) if emp_id is not None else None
+
+    def on_payslip(self):
+        if not self._last_results or self._last_period_dt is None:
+            QMessageBox.information(self, S.MSG_NO_SELECTION, S.MSG_NO_RESULTS_TO_SAVE)
+            return
+        emp_id = self._selected_employee_id()
+        if emp_id is None:
+            QMessageBox.information(self, S.MSG_NO_SELECTION, S.MSG_SELECT_EMPLOYEE_FIRST)
+            return
+        period_start, period_end = self._last_period_dt
+        open_payslip_dialog(self.conn, emp_id, period_start, period_end, self._last_period_label, parent=self)
 
     def on_save(self):
         if not self._last_results or self._last_period is None:

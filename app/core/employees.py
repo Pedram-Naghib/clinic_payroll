@@ -6,6 +6,8 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass, field
 
+from app.core.config import get_config
+
 
 @dataclass
 class EmployeeInput:
@@ -14,7 +16,7 @@ class EmployeeInput:
     device_enroll_no: str | None = None
     is_exempt_from_shifts: bool = False
     fixed_monthly_salary: int | None = None   # insured: base monthly salary. non_insured: flat add-on (e.g. Rahmani)
-    base_hourly_rate: int | None = None        # non_insured: explicit hourly rate; insured: auto-derived if None
+    base_hourly_rate: int | None = None        # non_insured: explicit hourly rate; insured: auto-derived if left blank/0
     is_married: bool = False
     number_of_children: int = 0
     seniority_allowance: int = 0
@@ -22,13 +24,22 @@ class EmployeeInput:
     notes: str | None = None
 
 
+# Fallback only -- add_employee/update_employee read the live, Owner-editable
+# system_config['base_monthly_hours'] instead whenever a connection is
+# available, so a later change to that setting doesn't leave newly-derived
+# hourly rates using a stale hardcoded value.
 BASE_MONTHLY_HOURS = 192
 
 
 def add_employee(conn: sqlite3.Connection, emp: EmployeeInput) -> int:
+    base_hours = get_config(conn, "base_monthly_hours", default=BASE_MONTHLY_HOURS)
     base_hourly = emp.base_hourly_rate
-    if emp.employment_type == "insured" and base_hourly is None and emp.fixed_monthly_salary:
-        base_hourly = round(emp.fixed_monthly_salary / BASE_MONTHLY_HOURS)
+    # Treat 0 the same as "left blank" -- a "0" typed into the hourly-rate
+    # field (or an old CSV import with an explicit 0) should never silently
+    # override the derived rate, since base_pay/overtime/under-hours math
+    # all depend on this being a real, non-zero hourly rate for insured staff.
+    if emp.employment_type == "insured" and not base_hourly and emp.fixed_monthly_salary:
+        base_hourly = round(emp.fixed_monthly_salary / base_hours) if base_hours else 0
 
     cur = conn.execute(
         """
@@ -54,9 +65,10 @@ def add_employee(conn: sqlite3.Connection, emp: EmployeeInput) -> int:
 
 
 def update_employee(conn: sqlite3.Connection, employee_id: int, emp: EmployeeInput) -> None:
+    base_hours = get_config(conn, "base_monthly_hours", default=BASE_MONTHLY_HOURS)
     base_hourly = emp.base_hourly_rate
-    if emp.employment_type == "insured" and base_hourly is None and emp.fixed_monthly_salary:
-        base_hourly = round(emp.fixed_monthly_salary / BASE_MONTHLY_HOURS)
+    if emp.employment_type == "insured" and not base_hourly and emp.fixed_monthly_salary:
+        base_hourly = round(emp.fixed_monthly_salary / base_hours) if base_hours else 0
 
     conn.execute(
         """

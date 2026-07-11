@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 
 from app.core.config import get_config
 from app.core.allowance_engine import compute_allowances_for_employee, AllowanceResult
+from app.core.leave import preview_shortfall_coverage
 
 
 @dataclass
@@ -34,6 +35,14 @@ class PayrollResult:
     total_pay: int = 0
     pay_mode: str = "hourly"  # 'hourly' | 'fixed_no_clocking'
     notes: list[str] = field(default_factory=list)
+    # Shortfall/leave transparency (insured only -- see calculate_payroll_for_employee):
+    # when clocked hours fall short of base_monthly_hours, the shortfall is first
+    # covered by the employee's paid-leave balance (leave_days_covered, no pay
+    # impact) and only the remainder becomes an actual net-pay deduction
+    # (under_hours_deduction / uncovered_shortfall_hours) -- see app.core.leave.
+    leave_days_covered: float = 0.0
+    uncovered_shortfall_hours: float = 0.0
+    under_hours_deduction: int = 0
 
     @property
     def allowances_total(self) -> int:
@@ -55,6 +64,9 @@ class PayrollResult:
                 {"code": a.code, "label": a.label, "amount": a.amount} for a in self.allowances
             ],
             "allowances_total": self.allowances_total,
+            "leave_days_covered": self.leave_days_covered,
+            "uncovered_shortfall_hours": self.uncovered_shortfall_hours,
+            "under_hours_deduction": self.under_hours_deduction,
             "insurance_deduction": self.insurance_deduction,
             "total_pay": self.total_pay,
             "notes": self.notes,
@@ -122,7 +134,12 @@ def calculate_payroll_for_employee(
         return result
 
     # === Normal hour-based path ===
-    allowances = compute_allowances_for_employee(conn, employee, worked_hours)
+    # Allowances (housing/food per-hour etc.) are only ever countable for
+    # non-insured staff up to base_monthly_hours -- hours worked beyond that
+    # don't inflate them. Insured allowances are flat (config_flat/
+    # config_per_child/employee_field_flat) so this cap is a no-op for them.
+    allowance_hours = min(worked_hours, base_hours) if employment_type == "non_insured" else worked_hours
+    allowances = compute_allowances_for_employee(conn, employee, allowance_hours)
     result.allowances = allowances
 
     if employment_type == "insured":
@@ -131,11 +148,42 @@ def calculate_payroll_for_employee(
         result.regular_hours = regular_hours
         result.overtime_hours = overtime_hours
 
-        base_pay = round(fixed_monthly_salary * (regular_hours / base_hours)) if base_hours else 0
-        overtime_pay = round(overtime_hours * base_hourly_rate * (1 + overtime_premium_pct / 100))
+        # base_hourly_rate may be 0/unset on old records (a UI/import quirk --
+        # "0" in the text field isn't the same as blank) even though it's
+        # meant to always be derivable from the monthly salary for insured
+        # staff. Never let a stale 0 silently zero out overtime/holiday/
+        # under-hours pay -- fall back to the derived rate.
+        effective_hourly_rate = base_hourly_rate or (
+            round(fixed_monthly_salary / base_hours) if base_hours else 0
+        )
+
+        # Base salary (پایه حقوق) is always paid in full -- it is a fixed
+        # monthly amount, not prorated by hours worked. Shortfalls below
+        # base_hours are handled explicitly below (leave balance, then an
+        # under-hours deduction), never by silently shrinking base_pay.
+        base_pay = fixed_monthly_salary
+        overtime_pay = round(overtime_hours * effective_hourly_rate * (1 + overtime_premium_pct / 100))
 
         result.base_pay = base_pay
         result.overtime_pay = overtime_pay
+
+        # Holiday premium: an additive bonus on top of the flat base salary
+        # (holiday_hours are already a subset of regular_hours, and thus
+        # already paid for via base_pay -- this is just the extra premium
+        # percentage). holiday_hours arriving here already excludes night
+        # shifts, which never earn this premium (see attendance_engine).
+        holiday_pay = round(holiday_hours * effective_hourly_rate * (holiday_premium_pct / 100))
+        result.holiday_pay = holiday_pay
+
+        # Hours shortfall: first drawn from the employee's paid-leave
+        # balance (no pay impact); only what the balance can't cover becomes
+        # an actual net-pay deduction. See app.core.leave for the model.
+        shortfall_hours = max(0.0, base_hours - regular_hours)
+        coverage = preview_shortfall_coverage(employee, shortfall_hours)
+        result.leave_days_covered = coverage.covered_days
+        result.uncovered_shortfall_hours = coverage.uncovered_hours
+        under_hours_deduction = round(coverage.uncovered_hours * effective_hourly_rate)
+        result.under_hours_deduction = under_hours_deduction
 
         insurance_base = base_pay + sum(
             a.amount for a in allowances if not a.excluded_from_insurance_base
@@ -144,10 +192,16 @@ def calculate_payroll_for_employee(
         result.insurance_deduction = insurance_deduction
 
         result.total_pay = (
-            base_pay + overtime_pay + result.allowances_total - insurance_deduction
+            base_pay + overtime_pay + holiday_pay + result.allowances_total
+            - insurance_deduction - under_hours_deduction
         )
 
     else:  # non_insured
+        # No overtime premium beyond base_monthly_hours for non-insured staff
+        # (ezafe kari does not apply to them) -- hours above base_hours are
+        # simply paid at the plain hourly rate via regular_pay below, same
+        # as any other regular hour. holiday_hours arriving here already
+        # excludes night shifts (see attendance_engine.build_payroll_inputs).
         regular_hours = max(0.0, worked_hours - holiday_hours)
         result.regular_hours = regular_hours
         result.overtime_hours = 0.0
