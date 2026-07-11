@@ -203,9 +203,9 @@ class PayrollTab(QWidget):
             cells = [
                 name_item,
                 _text_item(type_display),
-                _numeric_item(res.regular_hours, display=f"{res.regular_hours:.1f}"),
-                _numeric_item(res.overtime_hours, display=f"{res.overtime_hours:.1f}"),
-                _numeric_item(res.holiday_hours, display=f"{res.holiday_hours:.1f}"),
+                _numeric_item(res.regular_hours, display=f"{res.regular_hours:g}"),
+                _numeric_item(res.overtime_hours, display=f"{res.overtime_hours:g}"),
+                _numeric_item(res.holiday_hours, display=f"{res.holiday_hours:g}"),
                 _numeric_item(res.base_pay),
                 _numeric_item(res.overtime_pay),
                 _numeric_item(res.holiday_pay),

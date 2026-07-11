@@ -98,6 +98,41 @@ def build_payslip_html(payslip: Payslip, clinic_name: str = "درمانگاه ش
 
     words = amount_in_words_rials(payslip.net_pay)
 
+    # --- Attached day-by-day attendance detail sheet (page 2) -- lets a
+    # manager check exactly which date/times a disputed month's hours came
+    # from. Printed on its own page (page-break-before) so it never eats
+    # into the main A5 fiche's single-page layout; simply omitted for
+    # fixed-no-clocking staff who have no daily_attendance rows at all. ---
+    attendance_section = ""
+    if payslip.daily_attendance:
+        detail_rows = "".join(
+            f"<tr>"
+            f"<td style='padding:3px 6px; border-top:1px solid #ddd;'>{d.jalali_date}</td>"
+            f"<td style='padding:3px 6px; border-top:1px solid #ddd; text-align:center;' dir='ltr'>{d.first_in}</td>"
+            f"<td style='padding:3px 6px; border-top:1px solid #ddd; text-align:center;' dir='ltr'>{d.last_out}</td>"
+            f"<td style='padding:3px 6px; border-top:1px solid #ddd; text-align:center;' dir='ltr'>{d.worked_hours:g}</td>"
+            f"<td style='padding:3px 6px; border-top:1px solid #ddd; text-align:center;'>{d.status}</td>"
+            f"</tr>"
+            for d in payslip.daily_attendance
+        )
+        attendance_section = f"""
+        <div style="page-break-before:always; font-family: Tahoma, sans-serif; font-size: 8.5pt; color:#111; padding-top:10px;">
+          <div style="text-align:center; font-weight:bold; font-size:10pt; margin-bottom:6px;">
+            ریز کارکرد روزانه — {payslip.full_name} — {payslip.period_label}
+          </div>
+          <table width="100%" cellspacing="0" style="border:1px solid #333; border-collapse:collapse;">
+            <tr style="background:#f0f0f0; font-weight:bold;">
+              <td style="padding:4px 6px; border-bottom:1px solid #333;">تاریخ</td>
+              <td style="padding:4px 6px; border-bottom:1px solid #333; text-align:center;">ساعت ورود</td>
+              <td style="padding:4px 6px; border-bottom:1px solid #333; text-align:center;">ساعت خروج</td>
+              <td style="padding:4px 6px; border-bottom:1px solid #333; text-align:center;">ساعت کارکرد</td>
+              <td style="padding:4px 6px; border-bottom:1px solid #333; text-align:center;">وضعیت</td>
+            </tr>
+            {detail_rows}
+          </table>
+        </div>
+        """
+
     return f"""
     <div dir="rtl" style="font-family: Tahoma, sans-serif; font-size: 8.5pt; color:#111;">
 
@@ -187,6 +222,7 @@ def build_payslip_html(payslip: Payslip, clinic_name: str = "درمانگاه ش
         </tr>
       </table>
     </div>
+    {attendance_section}
     """
 
 
@@ -215,6 +251,14 @@ class PayslipDialog(QDialog):
 
         self.preview = QTextEdit()
         self.preview.setReadOnly(True)
+        # Force a light background regardless of OS/app dark theme -- this is
+        # a paper document meant to be printed on white paper, so it should
+        # always render light even when Pedram's other tabs stay dark-themed.
+        # Without this, Windows dark mode tints the QTextEdit's palette dark,
+        # and only cells with an explicit background color (set in the HTML)
+        # end up readable -- e.g. the amount-in-words line was nearly
+        # invisible (dark gray text on a dark background).
+        self.preview.setStyleSheet("QTextEdit { background-color: white; color: #111; }")
         self.preview.setHtml(build_payslip_html(payslip))
         layout.addWidget(self.preview)
 

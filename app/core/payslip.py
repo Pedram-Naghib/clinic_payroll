@@ -18,6 +18,7 @@ from datetime import datetime
 from app.core.payroll_engine import PayrollResult
 from app.core.pay_rounding import calculate_payroll_for_employee  # rounds total_pay up to 1,000 Rial
 from app.core.attendance_engine import build_payroll_inputs
+from app.core.jalali import gregorian_to_jalali
 
 # Allowance codes that belong in the "Earnings" section of a payslip (bonuses
 # tied to service/seniority) rather than "Allowances" (family/cost-of-living
@@ -40,6 +41,18 @@ _ALLOWANCE_DISPLAY_LABELS = {
 class PayslipLine:
     label: str
     amount: int
+
+
+@dataclass
+class AttendanceDetailLine:
+    """One daily_attendance row, re-labeled for the payslip's attached
+    day-by-day detail sheet -- lets a manager check exactly which date/times
+    a disputed month's hours came from, without opening the Attendance tab."""
+    jalali_date: str
+    first_in: str   # "HH:MM" or "—"
+    last_out: str   # "HH:MM" or "—"
+    worked_hours: float
+    status: str
 
 
 @dataclass
@@ -68,6 +81,11 @@ class Payslip:
     leave_days_covered: float = 0.0
     uncovered_shortfall_hours: float = 0.0
     explicit_leave_days_taken: float = 0.0
+
+    # Day-by-day punch detail for this period (date + shift start/end +
+    # hours), so a disputed month can be checked at a glance -- see
+    # _daily_attendance_detail(). Empty for fixed-no-clocking staff.
+    daily_attendance: list[AttendanceDetailLine] = field(default_factory=list)
 
     gross_pay: int = 0
     total_deductions: int = 0
@@ -111,6 +129,51 @@ def _group_allowances(result: PayrollResult) -> tuple[list[PayslipLine], list[Pa
         allowances.append(PayslipLine(label, amount))
 
     return earnings_extra, allowances
+
+
+_STATUS_DISPLAY = {"ok": "عادی", "missing_punch": "ثبت ناقص (کسری ضربه)"}
+
+
+def _fmt_clock(dt_str: str | None) -> str:
+    if not dt_str:
+        return "—"
+    try:
+        return datetime.fromisoformat(dt_str).strftime("%H:%M")
+    except ValueError:
+        # tolerate 'YYYY-MM-DD HH:MM:SS' (sqlite default) as well
+        return dt_str[11:16] if len(dt_str) >= 16 else dt_str
+
+
+def _daily_attendance_detail(
+    conn: sqlite3.Connection, employee_id: int, period_start: str, period_end: str
+) -> list[AttendanceDetailLine]:
+    """Pulls this employee's daily_attendance rows for the period, for the
+    payslip's attached day-by-day detail sheet (date + shift start/end +
+    hours) -- e.g. so a disputed month can be checked at a glance instead of
+    re-opening the Attendance tab. Empty for fixed-no-clocking staff, who
+    never get daily_attendance rows in the first place."""
+    rows = conn.execute(
+        """SELECT work_date, first_in, last_out, worked_hours, status
+           FROM daily_attendance
+           WHERE employee_id = ? AND work_date >= ? AND work_date < ?
+           ORDER BY work_date""",
+        (employee_id, period_start, period_end),
+    ).fetchall()
+
+    detail = []
+    for r in rows:
+        gy, gm, gd = (int(x) for x in r["work_date"].split("-"))
+        jy, jm, jd = gregorian_to_jalali(gy, gm, gd)
+        detail.append(
+            AttendanceDetailLine(
+                jalali_date=f"{jy:04d}/{jm:02d}/{jd:02d}",
+                first_in=_fmt_clock(r["first_in"]),
+                last_out=_fmt_clock(r["last_out"]),
+                worked_hours=r["worked_hours"] or 0.0,
+                status=_STATUS_DISPLAY.get(r["status"], r["status"] or ""),
+            )
+        )
+    return detail
 
 
 def _explicit_leave_days_taken(
@@ -186,6 +249,9 @@ def build_payslip(
         leave_days_covered=result.leave_days_covered,
         uncovered_shortfall_hours=result.uncovered_shortfall_hours,
         explicit_leave_days_taken=_explicit_leave_days_taken(
+            conn, employee_id, period_start_iso, period_end_iso
+        ),
+        daily_attendance=_daily_attendance_detail(
             conn, employee_id, period_start_iso, period_end_iso
         ),
     )

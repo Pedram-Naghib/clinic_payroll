@@ -184,6 +184,8 @@ def compute_attendance(
 def persist_daily_attendance(
     conn: sqlite3.Connection,
     results: list[EmployeeAttendance],
+    period_start: datetime,
+    period_end: datetime,
 ) -> None:
     """Writes one daily_attendance row per (employee, work_date) found in
     `results`. Hours are attributed to the calendar date of the session's
@@ -191,10 +193,28 @@ def persist_daily_attendance(
     session note != 'ok' (too_long/too_short, i.e. a missing or implausible
     punch) contributes 0 hours to that day's worked_hours, and the day's
     status is set to 'missing_punch' so the manager sees it -- no further
-    action required from them; the employee loses that segment's pay."""
+    action required from them; the employee loses that segment's pay.
+
+    IMPORTANT: first clears every existing daily_attendance row for each
+    processed employee within [period_start, period_end). Previously this
+    only ever upserted -- a date that HAD a session in an earlier run but
+    has none in this one (e.g. after "clear this month's records" + a
+    re-import with fewer/different punches) kept its old row forever, since
+    nothing ever deleted it. That let stale hours from a prior import
+    silently survive a full re-import and bleed into payroll totals.
+    """
+    period_start_d = period_start.date().isoformat()
+    period_end_d = period_end.date().isoformat()
+
     for att in results:
         if att.is_fixed_pay:
             continue  # fixed-pay staff don't clock in; nothing to persist
+
+        conn.execute(
+            """DELETE FROM daily_attendance
+               WHERE employee_id = ? AND work_date >= ? AND work_date < ?""",
+            (att.employee_id, period_start_d, period_end_d),
+        )
 
         by_day: dict[str, list[WorkSession]] = {}
         for sess in att.sessions:
@@ -241,7 +261,7 @@ def compute_and_persist_attendance(
     in one call. Use this from the UI instead of calling compute_attendance()
     directly, so daily_attendance stays in sync with what's shown on screen."""
     results = compute_attendance(conn, period_start, period_end)
-    persist_daily_attendance(conn, results)
+    persist_daily_attendance(conn, results, period_start, period_end)
     return results
 
 
