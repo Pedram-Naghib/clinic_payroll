@@ -15,7 +15,8 @@ import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from app.core.payroll_engine import calculate_payroll_for_employee, PayrollResult
+from app.core.payroll_engine import PayrollResult
+from app.core.pay_rounding import calculate_payroll_for_employee  # rounds total_pay up to 1,000 Rial
 from app.core.attendance_engine import build_payroll_inputs
 
 # Allowance codes that belong in the "Earnings" section of a payslip (bonuses

@@ -10,7 +10,8 @@ from PySide6.QtWidgets import (
 )
 
 from app.core.attendance_engine import compute_and_persist_attendance, build_payroll_inputs
-from app.core.payroll_engine import calculate_payroll_batch, PayrollResult
+from app.core.payroll_engine import PayrollResult
+from app.core.pay_rounding import calculate_payroll_batch  # rounds total_pay up to 1,000 Rial
 from app.core.payroll_runs import find_existing_run, save_payroll_run
 from app.core.jalali import jalali_to_gregorian
 from app.ui.payslip_view import open_payslip_dialog
@@ -108,7 +109,12 @@ class PayrollTab(QWidget):
         self.table = QTableWidget()
         self.table.setColumnCount(len(self.COLUMNS))
         self.table.setHorizontalHeaderLabels(self.COLUMNS)
-        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        # Interactive (draggable) on every column, including the name column --
+        # it used to be forced to Stretch, which squeezed it down to near-zero
+        # width whenever the other 12 columns didn't all fit the viewport.
+        # Widths are auto-sized to content once results are rendered (see
+        # _render_results), and the user can still drag any border afterwards.
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.setSortingEnabled(True)
@@ -223,6 +229,16 @@ class PayrollTab(QWidget):
                 self.table.setItem(r, c, item)
 
         self.table.setSortingEnabled(True)
+
+        # Auto-size every column to its content/header now that the table is
+        # populated (columns stay Interactive afterwards, so the user can
+        # still drag any border to fine-tune). The name column gets an extra
+        # floor width since full_name is the one users complained was
+        # unreadable when squeezed.
+        self.table.resizeColumnsToContents()
+        if self.table.columnWidth(0) < 130:
+            self.table.setColumnWidth(0, 130)
+
         self.total_label.setText(S.LBL_PAYROLL_TOTAL.format(total=grand_total))
 
     def _selected_employee_id(self) -> int | None:

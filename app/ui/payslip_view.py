@@ -3,7 +3,7 @@ import sqlite3
 from datetime import date, datetime
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QTextDocument
+from PySide6.QtGui import QTextDocument, QGuiApplication
 from PySide6.QtPrintSupport import QPrinter, QPrintDialog
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QTextEdit, QPushButton, QFileDialog, QMessageBox,
@@ -118,7 +118,19 @@ class PayslipDialog(QDialog):
         self.payslip = payslip
         self.setWindowTitle(f"فیش حقوقی — {payslip.full_name}")
         self.setLayoutDirection(Qt.RightToLeft)
-        self.resize(650, 780)
+
+        # Cap the requested size to what's actually available on THIS screen
+        # (minus a margin for the taskbar/title bar). Previously this was a
+        # flat resize(650, 780) -- on a smaller display (e.g. a 1366x768
+        # clinic PC), 780px doesn't fit, the window gets clipped by Windows,
+        # and the button row (چاپ / ذخیره PDF / بستن) ends up rendered below
+        # the visible screen area entirely -- present in the layout, but
+        # unreachable. Capping here means the QTextEdit above the buttons
+        # simply gets its own internal scrollbar instead, and the button row
+        # always stays inside the visible window.
+        screen = self.screen() or QGuiApplication.primaryScreen()
+        avail_height = screen.availableGeometry().height() if screen else 780
+        self.resize(650, min(780, max(400, avail_height - 80)))
 
         layout = QVBoxLayout(self)
 
