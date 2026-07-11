@@ -27,7 +27,7 @@ from app.core.payroll_engine import (
     PayrollResult,
 )
 
-ROUND_TO_RIALS = 1000
+ROUND_TO_RIALS = 1000000
 
 
 def round_up_to_thousand(amount: int | float) -> int:

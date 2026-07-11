@@ -1,110 +1,189 @@
 from __future__ import annotations
+import base64
 import sqlite3
 from datetime import date, datetime
+from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QTextDocument, QGuiApplication
+from PySide6.QtGui import QTextDocument, QGuiApplication, QPageLayout, QPageSize
+from PySide6.QtCore import QMarginsF
 from PySide6.QtPrintSupport import QPrinter, QPrintDialog
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QTextEdit, QPushButton, QFileDialog, QMessageBox,
 )
 
 from app.core.payslip import Payslip, build_payslip
+from app.core.jalali import gregorian_to_jalali
+from app.core.num2fa import amount_in_words_rials
 from app.ui import strings_fa as S
 
 _EMP_TYPE_DISPLAY = {"insured": "بیمه‌شده", "non_insured": "بیمه نشده"}
+
+_ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
+_LOGO_PATH = _ASSETS_DIR / "clinic_logo.png"
+
+
+def _logo_data_uri() -> str:
+    """Embeds the clinic logo as a base64 data: URI so the payslip HTML is
+    fully self-contained -- no external file path to resolve at print/PDF
+    time, regardless of which machine renders it."""
+    try:
+        data = _LOGO_PATH.read_bytes()
+    except OSError:
+        return ""
+    return "data:image/png;base64," + base64.b64encode(data).decode("ascii")
 
 
 def _fmt(n: int | float) -> str:
     return f"{n:,.0f}"
 
 
-def _row(label: str, amount: int, bold: bool = False) -> str:
-    style = "font-weight:bold;" if bold else ""
-    return (
-        f"<tr><td style='padding:4px 8px;{style}'>{label}</td>"
-        f"<td style='padding:4px 8px;text-align:left;{style}' dir='ltr'>{_fmt(amount)}</td></tr>"
+def _today_jalali_str() -> str:
+    jy, jm, jd = gregorian_to_jalali(date.today().year, date.today().month, date.today().day)
+    return f"{jy:04d}/{jm:02d}/{jd:02d}"
+
+
+def _panel_rows(lines: list) -> str:
+    if not lines:
+        return "<tr><td style='padding:3px 6px; color:#888;'>—</td><td></td></tr>"
+    return "".join(
+        f"<tr>"
+        f"<td style='padding:3px 6px; border-top:1px solid #ddd;'>{l.label}</td>"
+        f"<td style='padding:3px 6px; border-top:1px solid #ddd; text-align:left;' dir='ltr'>{_fmt(l.amount)}</td>"
+        f"</tr>"
+        for l in lines
     )
 
 
-def _section_table(title: str, lines: list, total: int, total_label: str) -> str:
-    if not lines:
-        rows = "<tr><td style='padding:4px 8px;color:#888;'>—</td><td></td></tr>"
-    else:
-        rows = "".join(_row(l.label, l.amount) for l in lines)
-    return f"""
-    <table width="100%" cellspacing="0" style="border:1px solid #ccc; margin-bottom:10px;">
-      <tr><td colspan="2" style="background:#f0f0f0; padding:6px 8px; font-weight:bold;">{title}</td></tr>
-      {rows}
-      <tr style="border-top:1px solid #ccc;">{_row(total_label, total, bold=True)}</tr>
-    </table>
-    """
+def build_payslip_html(payslip: Payslip, clinic_name: str = "درمانگاه شبانه روزی رجائی شهر") -> str:
+    emp_type_display = _EMP_TYPE_DISPLAY.get(payslip.employment_type, payslip.employment_type)
 
-
-def build_payslip_html(payslip: Payslip, clinic_name: str = "درمانگاه") -> str:
+    # --- Leave / shortfall transparency rows (kept from the previous design --
+    # useful context even though it's not on the classic paper templates) ---
     leave_rows = ""
     if payslip.leave_days_covered:
         leave_rows += (
-            f"<tr><td style='padding:4px 8px;'>پوشش کسری کارکرد از موجودی مرخصی</td>"
-            f"<td style='padding:4px 8px;text-align:left;' dir='ltr'>"
+            f"<tr><td style='padding:3px 6px; border-top:1px solid #ddd;'>پوشش کسری کارکرد از موجودی مرخصی</td>"
+            f"<td style='padding:3px 6px; border-top:1px solid #ddd; text-align:left;' dir='ltr'>"
             f"{payslip.leave_days_covered:g} روز</td></tr>"
         )
     if payslip.uncovered_shortfall_hours:
         leave_rows += (
-            f"<tr><td style='padding:4px 8px;'>کمبود کارکرد پوشش‌داده‌نشده (کسر از حقوق)</td>"
-            f"<td style='padding:4px 8px;text-align:left;' dir='ltr'>"
+            f"<tr><td style='padding:3px 6px; border-top:1px solid #ddd;'>کمبود کارکرد پوشش‌داده‌نشده (کسر از حقوق)</td>"
+            f"<td style='padding:3px 6px; border-top:1px solid #ddd; text-align:left;' dir='ltr'>"
             f"{payslip.uncovered_shortfall_hours:g} ساعت</td></tr>"
         )
     if payslip.explicit_leave_days_taken:
         leave_rows += (
-            f"<tr><td style='padding:4px 8px;'>مرخصی صریح استفاده‌شده در این دوره</td>"
-            f"<td style='padding:4px 8px;text-align:left;' dir='ltr'>"
+            f"<tr><td style='padding:3px 6px; border-top:1px solid #ddd;'>مرخصی صریح استفاده‌شده در این دوره</td>"
+            f"<td style='padding:3px 6px; border-top:1px solid #ddd; text-align:left;' dir='ltr'>"
             f"{payslip.explicit_leave_days_taken:g} روز</td></tr>"
         )
-    if not leave_rows:
-        leave_rows = "<tr><td style='padding:4px 8px;color:#888;'>موردی ثبت نشده</td><td></td></tr>"
+    leave_section = ""
+    if leave_rows:
+        leave_section = f"""
+        <table width="100%" cellspacing="0" style="border:1px solid #999; border-collapse:collapse; margin-top:5px; font-size:8pt;">
+          <tr><td colspan="2" style="background:#f0f0f0; font-weight:bold; padding:3px 6px; border-bottom:1px solid #999;">مرخصی و کمبود کارکرد</td></tr>
+          {leave_rows}
+        </table>
+        """
 
-    earnings_html = _section_table("درآمدها (Earnings)", payslip.earnings, payslip.earnings_total, "جمع درآمدها")
-    allowances_html = _section_table("مزایا (Allowances)", payslip.allowances, payslip.allowances_total, "جمع مزایا")
-    deductions_html = _section_table("کسورات (Deductions)", payslip.deductions, payslip.deductions_total, "جمع کسورات")
+    earnings_allowances_rows = _panel_rows(payslip.earnings + payslip.allowances)
+    deductions_rows = _panel_rows(payslip.deductions)
+
+    logo_uri = _logo_data_uri()
+    logo_img = (
+        f"<img src='{logo_uri}' width='40' height='35'>" if logo_uri else ""
+    )
+
+    words = amount_in_words_rials(payslip.net_pay)
 
     return f"""
-    <div dir="rtl" style="font-family: Tahoma, sans-serif; font-size: 11pt;">
-      <div style="text-align:center; margin-bottom: 14px;">
-        <div style="font-size:14pt; font-weight:bold;">{clinic_name} — فیش حقوقی</div>
-        <div style="color:#555;">دوره: {payslip.period_label}</div>
-      </div>
+    <div dir="rtl" style="font-family: Tahoma, sans-serif; font-size: 8.5pt; color:#111;">
 
-      <table width="100%" style="margin-bottom:14px;">
+      <table width="100%" style="border-collapse:collapse; margin-bottom:6px;">
         <tr>
-          <td style="padding:2px 8px;"><b>نام و نام خانوادگی:</b> {payslip.full_name}</td>
-          <td style="padding:2px 8px;"><b>نوع استخدام:</b> {_EMP_TYPE_DISPLAY.get(payslip.employment_type, payslip.employment_type)}</td>
-        </tr>
-        <tr>
-          <td style="padding:2px 8px;"><b>ساعات عادی:</b> {payslip.regular_hours:g}</td>
-          <td style="padding:2px 8px;"><b>ساعات اضافه‌کاری:</b> {payslip.overtime_hours:g}</td>
-        </tr>
-        <tr>
-          <td style="padding:2px 8px;"><b>ساعات تعطیل:</b> {payslip.holiday_hours:g}</td>
-          <td style="padding:2px 8px;"></td>
-        </tr>
-      </table>
-
-      {earnings_html}
-      {allowances_html}
-      {deductions_html}
-
-      <table width="100%" cellspacing="0" style="border:1px solid #ccc; margin-bottom:10px;">
-        <tr><td colspan="2" style="background:#f0f0f0; padding:6px 8px; font-weight:bold;">مرخصی و کمبود کارکرد</td></tr>
-        {leave_rows}
-      </table>
-
-      <table width="100%" cellspacing="0" style="border:2px solid #333; margin-top:6px;">
-        <tr>
-          <td style="padding:8px; font-size:12pt; font-weight:bold;">خالص پرداختی</td>
-          <td style="padding:8px; font-size:12pt; font-weight:bold; text-align:left;" dir="ltr">
-            {_fmt(payslip.net_pay)} ریال
+          <td style="width:50px; vertical-align:middle;">{logo_img}</td>
+          <td style="text-align:center; vertical-align:middle;">
+            <div style="font-size:12pt; font-weight:bold;">{clinic_name}</div>
+            <div style="font-size:8.5pt; color:#444;">فیش حقوقی پرسنل</div>
           </td>
+          <td style="width:120px; text-align:left; vertical-align:middle; font-size:7.5pt; color:#444;" dir="ltr">
+            تاریخ چاپ: {_today_jalali_str()}
+          </td>
+        </tr>
+      </table>
+
+      <table width="100%" cellspacing="0" style="border:1px solid #333; border-collapse:collapse; margin-bottom:6px;">
+        <tr>
+          <td style="border:1px solid #333; padding:3px 6px; background:#f2f2f2; font-weight:bold; width:20%;">نام و نام خانوادگی</td>
+          <td style="border:1px solid #333; padding:3px 6px; width:30%;">{payslip.full_name}</td>
+          <td style="border:1px solid #333; padding:3px 6px; background:#f2f2f2; font-weight:bold; width:20%;">کد پرسنلی</td>
+          <td style="border:1px solid #333; padding:3px 6px;" dir="ltr">{payslip.personnel_code or "—"}</td>
+        </tr>
+        <tr>
+          <td style="border:1px solid #333; padding:3px 6px; background:#f2f2f2; font-weight:bold;">نوع استخدام</td>
+          <td style="border:1px solid #333; padding:3px 6px;">{emp_type_display}</td>
+          <td style="border:1px solid #333; padding:3px 6px; background:#f2f2f2; font-weight:bold;">دوره</td>
+          <td style="border:1px solid #333; padding:3px 6px;">{payslip.period_label}</td>
+        </tr>
+        <tr>
+          <td style="border:1px solid #333; padding:3px 6px; background:#f2f2f2; font-weight:bold;">ساعات عادی</td>
+          <td style="border:1px solid #333; padding:3px 6px;" dir="ltr">{payslip.regular_hours:g}</td>
+          <td style="border:1px solid #333; padding:3px 6px; background:#f2f2f2; font-weight:bold;">ساعات اضافه‌کاری</td>
+          <td style="border:1px solid #333; padding:3px 6px;" dir="ltr">{payslip.overtime_hours:g}</td>
+        </tr>
+        <tr>
+          <td style="border:1px solid #333; padding:3px 6px; background:#f2f2f2; font-weight:bold;">ساعات تعطیل</td>
+          <td style="border:1px solid #333; padding:3px 6px;" dir="ltr">{payslip.holiday_hours:g}</td>
+          <td style="border:1px solid #333; padding:3px 6px;"></td>
+          <td style="border:1px solid #333; padding:3px 6px;"></td>
+        </tr>
+      </table>
+
+      <table width="100%" cellspacing="0" style="border-collapse:collapse; margin-bottom:0;">
+        <tr>
+          <td width="50%" style="vertical-align:top; border:1px solid #333; padding:0;">
+            <table width="100%" cellspacing="0" style="border-collapse:collapse; font-size:8.5pt;">
+              <tr><td colspan="2" style="background:#dce7f2; font-weight:bold; padding:4px 6px; border-bottom:1px solid #333;">حقوق و مزایا</td></tr>
+              {earnings_allowances_rows}
+              <tr>
+                <td style="padding:4px 6px; font-weight:bold; border-top:2px solid #333; background:#eef4fa;">جمع حقوق و مزایا</td>
+                <td style="padding:4px 6px; font-weight:bold; border-top:2px solid #333; background:#eef4fa; text-align:left;" dir="ltr">{_fmt(payslip.gross_pay)}</td>
+              </tr>
+            </table>
+          </td>
+          <td width="50%" style="vertical-align:top; border:1px solid #333; border-right:none; padding:0;">
+            <table width="100%" cellspacing="0" style="border-collapse:collapse; font-size:8.5pt;">
+              <tr><td colspan="2" style="background:#f3dbdb; font-weight:bold; padding:4px 6px; border-bottom:1px solid #333;">کسورات</td></tr>
+              {deductions_rows}
+              <tr>
+                <td style="padding:4px 6px; font-weight:bold; border-top:2px solid #333; background:#faeeee;">جمع کسورات</td>
+                <td style="padding:4px 6px; font-weight:bold; border-top:2px solid #333; background:#faeeee; text-align:left;" dir="ltr">{_fmt(payslip.total_deductions)}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+
+      {leave_section}
+
+      <table width="100%" cellspacing="0" style="border:2px solid #222; border-collapse:collapse; margin-top:6px;">
+        <tr>
+          <td style="padding:6px 8px; font-size:10.5pt; font-weight:bold; width:35%;">خالص پرداختی</td>
+          <td style="padding:6px 8px; font-size:10.5pt; font-weight:bold; text-align:left;" dir="ltr">{_fmt(payslip.net_pay)} ریال</td>
+        </tr>
+        <tr>
+          <td colspan="2" style="padding:4px 8px; font-size:7.5pt; color:#333; border-top:1px solid #999;">
+            {words}
+          </td>
+        </tr>
+      </table>
+
+      <table width="100%" style="margin-top:22px;">
+        <tr>
+          <td style="font-size:7.5pt; color:#555;">امضا و اثر انگشت دریافت‌کننده: .......................................</td>
+          <td style="font-size:7.5pt; color:#555; text-align:left;" dir="ltr">امضا و مهر واحد مالی: .......................................</td>
         </tr>
       </table>
     </div>
@@ -152,8 +231,22 @@ class PayslipDialog(QDialog):
         btn_row.addWidget(close_btn)
         layout.addLayout(btn_row)
 
-    def on_print(self):
+    def _make_printer(self) -> QPrinter:
+        """Both print and PDF export use A5, per the requested payslip format
+        -- a full A4 sheet is wasteful for a single payslip."""
         printer = QPrinter(QPrinter.HighResolution)
+        printer.setPageLayout(
+            QPageLayout(
+                QPageSize(QPageSize.A5),
+                QPageLayout.Portrait,
+                QMarginsF(8, 8, 8, 8),
+                QPageLayout.Millimeter,
+            )
+        )
+        return printer
+
+    def on_print(self):
+        printer = self._make_printer()
         dialog = QPrintDialog(printer, self)
         if dialog.exec() == QDialog.Accepted:
             self.preview.document().print_(printer)
@@ -165,7 +258,7 @@ class PayslipDialog(QDialog):
             return
         if not path.lower().endswith(".pdf"):
             path += ".pdf"
-        printer = QPrinter(QPrinter.HighResolution)
+        printer = self._make_printer()
         printer.setOutputFormat(QPrinter.PdfFormat)
         printer.setOutputFileName(path)
         self.preview.document().print_(printer)

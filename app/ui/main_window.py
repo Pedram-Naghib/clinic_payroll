@@ -7,9 +7,10 @@ Run with:  python -m app.ui.main_window
 from __future__ import annotations
 import sys
 from datetime import date
+from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QIcon
 from PySide6.QtWidgets import QApplication, QMainWindow, QTabWidget
 
 from app.db.database import get_connection, init_db
@@ -25,11 +26,15 @@ from app.ui.commissions_tab import CommissionsTab
 from app.ui.payroll_tab import PayrollTab
 from app.ui import strings_fa as S
 
+_LOGO_PATH = Path(__file__).resolve().parent.parent / "assets" / "clinic_logo.png"
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle(S.APP_TITLE)
+        if _LOGO_PATH.exists():
+            self.setWindowIcon(QIcon(str(_LOGO_PATH)))
         self.resize(1200, 720)
         # Force RTL layout on the whole window (Persian)
         self.setLayoutDirection(Qt.RightToLeft)
@@ -72,6 +77,8 @@ def main():
     # App-wide RTL + a Persian-friendly font shipped on most systems.
     app.setLayoutDirection(Qt.RightToLeft)
     app.setFont(QFont("Tahoma", 10))
+    if _LOGO_PATH.exists():
+        app.setWindowIcon(QIcon(str(_LOGO_PATH)))
     win = MainWindow()
     win.show()
     sys.exit(app.exec())

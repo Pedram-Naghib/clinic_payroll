@@ -55,6 +55,8 @@ class Payslip:
     overtime_hours: float
     holiday_hours: float
 
+    personnel_code: str = ""
+
     earnings: list[PayslipLine] = field(default_factory=list)
     allowances: list[PayslipLine] = field(default_factory=list)
     deductions: list[PayslipLine] = field(default_factory=list)
@@ -177,6 +179,7 @@ def build_payslip(
         regular_hours=result.regular_hours,
         overtime_hours=result.overtime_hours,
         holiday_hours=result.holiday_hours,
+        personnel_code=str(employee["device_enroll_no"] or ""),
         earnings=earnings,
         allowances=allowances,
         deductions=deductions,
