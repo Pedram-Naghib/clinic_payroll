@@ -25,10 +25,11 @@ from app.core.jalali import gregorian_to_jalali
 # support) -- everything else in PayrollResult.allowances falls into Allowances.
 _EARNINGS_ALLOWANCE_CODES = {"seniority_fixed"}
 
-# Allowance codes grouped into a single "بن و مسکن" (housing+food) line, per
-# the requested payslip layout -- mirrors the housing/food merge payroll_runs.py
-# already does for its own columns.
-_HOUSING_FOOD_CODES = {"housing_fixed", "housing_hourly", "food_fixed", "food_hourly"}
+# Allowance codes grouped by type -- housing ("حق مسکن") and food/meal
+# ("حق بن (خوراک)") used to be merged into a single "بن و مسکن" line; kept
+# as separate lines now per request, so each is individually visible.
+_HOUSING_CODES = {"housing_fixed", "housing_hourly"}
+_FOOD_CODES = {"food_fixed", "food_hourly"}
 
 _ALLOWANCE_DISPLAY_LABELS = {
     "marriage": "حق تاهل",
@@ -105,26 +106,32 @@ class Payslip:
 
 
 def _group_allowances(result: PayrollResult) -> tuple[list[PayslipLine], list[PayslipLine]]:
-    """Splits PayrollResult.allowances into (earnings_extra, allowances),
-    merging housing+food into one 'بن و مسکن' line. Any allowance code not
-    explicitly mapped keeps its own DB-configured label, so a future
-    Owner-added allowance never silently disappears from the payslip."""
+    """Splits PayrollResult.allowances into (earnings_extra, allowances) --
+    housing ('حق مسکن') and food/meal ('حق بن (خوراک)') are kept as separate
+    lines. Any allowance code not explicitly mapped keeps its own
+    DB-configured label, so a future Owner-added allowance never silently
+    disappears from the payslip."""
     earnings_extra: list[PayslipLine] = []
     allowances: list[PayslipLine] = []
-    housing_food_total = 0
+    housing_total = 0
+    food_total = 0
     seen_other: dict[str, int] = {}
 
     for a in result.allowances:
         if a.code in _EARNINGS_ALLOWANCE_CODES:
             earnings_extra.append(PayslipLine(_ALLOWANCE_DISPLAY_LABELS.get(a.code, a.label), a.amount))
-        elif a.code in _HOUSING_FOOD_CODES:
-            housing_food_total += a.amount
+        elif a.code in _HOUSING_CODES:
+            housing_total += a.amount
+        elif a.code in _FOOD_CODES:
+            food_total += a.amount
         else:
             label = _ALLOWANCE_DISPLAY_LABELS.get(a.code, a.label)
             seen_other[label] = seen_other.get(label, 0) + a.amount
 
-    if housing_food_total:
-        allowances.append(PayslipLine("بن و مسکن", housing_food_total))
+    if housing_total:
+        allowances.append(PayslipLine("حق مسکن", housing_total))
+    if food_total:
+        allowances.append(PayslipLine("حق بن (خوراک)", food_total))
     for label, amount in seen_other.items():
         allowances.append(PayslipLine(label, amount))
 
@@ -219,11 +226,16 @@ def build_payslip(
 
     earnings_extra, allowances = _group_allowances(result)
 
-    earnings = [PayslipLine("پایه حقوق", result.base_pay)]
-    if result.overtime_pay:
-        earnings.append(PayslipLine("اضافه‌کاری", result.overtime_pay))
-    if result.holiday_pay:
-        earnings.append(PayslipLine("تعطیلات", result.holiday_pay))
+    # اضافه‌کاری / تعطیلات are always shown, even at 0 -- previously they were
+    # hidden entirely when zero, which made payslips structurally
+    # inconsistent from one employee/month to the next (a manager comparing
+    # several payslips side by side shouldn't have rows appearing/
+    # disappearing based on amount).
+    earnings = [
+        PayslipLine("پایه حقوق", result.base_pay),
+        PayslipLine("اضافه‌کاری", result.overtime_pay),
+        PayslipLine("تعطیلات", result.holiday_pay),
+    ]
     earnings.extend(earnings_extra)
 
     deductions: list[PayslipLine] = []
