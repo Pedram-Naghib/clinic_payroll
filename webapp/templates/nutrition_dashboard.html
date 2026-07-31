@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% from "_help.html" import help_box %}
+{% block content %}
+
+{% call help_box() %}
+<p>نمای کلی ماه جاری شمسی ({{ month_label }}) برای بخش تغذیه — اعداد زنده از درآمد و هزینه‌های ثبت‌شدهٔ همین ماه محاسبه می‌شوند.</p>
+{% endcall %}
+
+{% if not active_doctor %}
+<div class="alert alert-warning" style="font-size:.85rem;">
+  هیچ پزشک فعالی برای بخش تغذیه ثبت نشده است.
+  {% if role in ('owner', 'accountant') %}<a href="/nutrition/doctors">ثبت پزشک و قرارداد</a>{% endif %}
+</div>
+{% else %}
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3">
+    <div class="cp-kpi">
+      <div class="cp-kpi-icon" style="background:#e6f5f4; color:#0b756f;"><i class="bi bi-cash-coin"></i></div>
+      <div><div class="cp-kpi-label">درآمد {{ month_label }}</div><div class="cp-kpi-value">{{ '{:,}'.format(breakdown.gross_revenue) }}</div></div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="cp-kpi">
+      <div class="cp-kpi-icon" style="background:#fbe4e4; color:#a3272c;"><i class="bi bi-receipt"></i></div>
+      <div><div class="cp-kpi-label">جمع هزینه‌ها</div><div class="cp-kpi-value">{{ '{:,}'.format(breakdown.consumable_expenses + breakdown.non_consumable_expenses) }}</div></div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="cp-kpi">
+      <div class="cp-kpi-icon" style="background:#fdecd2; color:#8a5a00;"><i class="bi bi-person-badge"></i></div>
+      <div><div class="cp-kpi-label">سهم پزشک ({{ active_doctor.full_name }})</div><div class="cp-kpi-value">{{ '{:,}'.format(breakdown.doctor_share) }}</div></div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="cp-kpi">
+      <div class="cp-kpi-icon" style="background:#e3f6e8; color:#1c7a3c;"><i class="bi bi-building"></i></div>
+      <div><div class="cp-kpi-label">سهم کلینیک + شریک</div><div class="cp-kpi-value">{{ '{:,}'.format(breakdown.clinic_share + breakdown.partner_share) }}</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="cp-card p-3">
+      <div class="cp-section-title">نسبت تقسیم درآمد {{ month_label }}</div>
+      {% set total_split = breakdown.doctor_share + breakdown.clinic_share + breakdown.partner_share %}
+      {% if total_split > 0 %}
+      <div class="d-flex rounded-2 overflow-hidden mb-2" style="height:26px;">
+        <div style="width:{{ (breakdown.doctor_share / total_split * 100) if breakdown.doctor_share > 0 else 0 }}%; background:#0b756f;"></div>
+        <div style="width:{{ (breakdown.clinic_share / total_split * 100) if breakdown.clinic_share > 0 else 0 }}%; background:#1c7a3c;"></div>
+        <div style="width:{{ (breakdown.partner_share / total_split * 100) if breakdown.partner_share > 0 else 0 }}%; background:#8a5a00;"></div>
+      </div>
+      <div class="d-flex gap-4" style="font-size:.8rem;">
+        <span><span class="d-inline-block rounded-circle" style="width:9px;height:9px;background:#0b756f;"></span> پزشک ({{ '{:,}'.format(breakdown.doctor_share) }})</span>
+        <span><span class="d-inline-block rounded-circle" style="width:9px;height:9px;background:#1c7a3c;"></span> کلینیک ({{ '{:,}'.format(breakdown.clinic_share) }})</span>
+        <span><span class="d-inline-block rounded-circle" style="width:9px;height:9px;background:#8a5a00;"></span> شریک ({{ '{:,}'.format(breakdown.partner_share) }})</span>
+      </div>
+      {% else %}
+      <div class="text-muted text-center py-4" style="font-size:.85rem;">هنوز درآمدی برای این ماه ثبت نشده است.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="cp-card p-3 h-100">
+      <div class="cp-section-title">دسترسی سریع</div>
+      <div class="d-flex flex-column gap-2">
+        {% if role in ('owner', 'accountant') %}
+        <a href="/nutrition/revenues" class="btn btn-sm btn-outline-primary">ثبت درآمد جدید</a>
+        <a href="/nutrition/expenses" class="btn btn-sm btn-outline-primary">ثبت فاکتور هزینه</a>
+        <a href="/nutrition/settlement" class="btn btn-sm btn-outline-primary">تسویهٔ ماهانه و گزارش</a>
+        {% else %}
+        <div class="text-muted" style="font-size:.85rem;">دسترسی این بخش فقط برای مشاهده است.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endif %}
+
+{% endblock %}

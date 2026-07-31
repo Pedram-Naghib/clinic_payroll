@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% from "_help.html" import help_box %}
+{% block content %}
+
+{% call help_box() %}
+<p>هر پزشک تغذیه یک قرارداد دارد (درصد سهم پزشک/کلینیک/شریک بخش تغذیه) که همین‌جا با هم ثبت می‌شوند.</p>
+<p>در هر لحظه فقط <b>یک پزشک فعال</b> وجود دارد — همان پزشکی که تسویه ماهانه برایش محاسبه می‌شود. فعال‌سازی یک پزشک، پزشک قبلی را به‌طور خودکار غیرفعال می‌کند.</p>
+<p>درصد سهم کلینیک و شریک بخش تغذیه باید مجموعاً <b>۱۰۰</b> باشد (پیش‌فرض هرکدام ۵۰).</p>
+{% endcall %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div class="text-muted" style="font-size:.85rem;">
+    غیرفعال کردن یک پزشک، درآمد و هزینه‌های ثبت‌شده‌اش را حذف نمی‌کند.
+  </div>
+  <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#cpNewDoctorForm">
+    <i class="bi bi-plus-lg"></i> افزودن پزشک و قرارداد
+  </button>
+</div>
+
+<div class="collapse mb-3" id="cpNewDoctorForm">
+  <div class="cp-card p-3">
+    <div class="cp-section-title">پزشک و قرارداد جدید</div>
+    <form class="row g-3" action="/nutrition/doctors/new" method="post">
+      <div class="col-md-4">
+        <label class="form-label" style="font-size:.82rem;">نام و نام خانوادگی</label>
+        <input type="text" name="full_name" class="form-control" placeholder="دکتر ..." required>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" style="font-size:.82rem;">شماره تماس</label>
+        <input type="text" name="phone" class="form-control" dir="ltr">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label" style="font-size:.82rem;">شروع قرارداد (شمسی)</label>
+        <input type="text" name="contract_start" class="form-control" placeholder="1405/04/01">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label" style="font-size:.82rem;">پایان قرارداد (شمسی)</label>
+        <input type="text" name="contract_end" class="form-control" placeholder="1406/03/31">
+      </div>
+
+      <div class="col-12"><hr class="my-1"></div>
+      <div class="col-md-4">
+        <label class="form-label" style="font-size:.82rem;">سهم پزشک از هزینه مصرفی (%)</label>
+        <input type="number" name="doctor_percentage" class="form-control" value="50" min="0" max="100" required>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" style="font-size:.82rem;">سهم کلینیک از باقیمانده (%)</label>
+        <input type="number" name="clinic_percentage" class="form-control" value="50" min="0" max="100" required>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" style="font-size:.82rem;">سهم شریک بخش تغذیه از باقیمانده (%)</label>
+        <input type="number" name="partner_percentage" class="form-control" value="50" min="0" max="100" required>
+      </div>
+
+      <div class="col-12">
+        <label class="form-label" style="font-size:.82rem;">توضیحات قرارداد (اختیاری)</label>
+        <input type="text" name="contract_notes" class="form-control">
+      </div>
+      <div class="col-12">
+        <label class="form-label" style="font-size:.82rem;">توضیحات پزشک (اختیاری)</label>
+        <input type="text" name="notes" class="form-control">
+      </div>
+      <div class="col-12">
+        <button class="btn btn-primary btn-sm" type="submit">ثبت پزشک و قرارداد</button>
+        <button class="btn btn-light border btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#cpNewDoctorForm">انصراف</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="cp-card">
+  <div class="table-responsive">
+    <table class="table cp-table mb-0">
+      <thead><tr>
+        <th>پزشک</th>
+        <th>تماس</th>
+        <th>مدت قرارداد</th>
+        <th>سهم پزشک / کلینیک / شریک</th>
+        <th>وضعیت</th>
+        <th></th>
+      </tr></thead>
+      <tbody>
+        {% for d in doctors %}
+        <tr>
+          <td class="fw-semibold">{{ d.full_name }}</td>
+          <td dir="ltr">{{ d.phone or '—' }}</td>
+          <td>{{ d.contract_start | jalali if d.contract_start else '—' }} تا {{ d.contract_end | jalali if d.contract_end else '—' }}</td>
+          <td>{{ d.doctor_percentage }}% / {{ d.clinic_percentage }}% / {{ d.partner_percentage }}%</td>
+          <td><span class="cp-status {{ 'ok' if d.active else 'muted' }}">{{ 'فعال' if d.active else 'غیرفعال' }}</span></td>
+          <td class="text-end text-nowrap">
+            <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#cpEditRow{{ d.id }}">ویرایش</button>
+            {% if d.active %}
+            <form action="/nutrition/doctors/{{ d.id }}/deactivate" method="post" class="d-inline">
+              <button type="submit" class="btn btn-sm btn-outline-secondary">غیرفعال‌سازی</button>
+            </form>
+            {% else %}
+            <form action="/nutrition/doctors/{{ d.id }}/activate" method="post" class="d-inline">
+              <button type="submit" class="btn btn-sm btn-outline-success" onclick="return confirm('{{ d.full_name }} فعال شود؟ پزشک فعال فعلی (در صورت وجود) غیرفعال خواهد شد.');">فعال‌سازی</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        <tr class="collapse" id="cpEditRow{{ d.id }}">
+          <td colspan="6">
+            <div class="cp-card p-3 my-2">
+              <div class="cp-section-title">ویرایش {{ d.full_name }}</div>
+              <form class="row g-3" action="/nutrition/doctors/{{ d.id }}/edit" method="post">
+                <div class="col-md-4">
+                  <label class="form-label" style="font-size:.82rem;">نام و نام خانوادگی</label>
+                  <input type="text" name="full_name" class="form-control" value="{{ d.full_name }}" required>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" style="font-size:.82rem;">شماره تماس</label>
+                  <input type="text" name="phone" class="form-control" dir="ltr" value="{{ d.phone or '' }}">
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label" style="font-size:.82rem;">شروع قرارداد (شمسی)</label>
+                  <input type="text" name="contract_start" class="form-control" value="{{ d.contract_start | jalali if d.contract_start else '' }}">
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label" style="font-size:.82rem;">پایان قرارداد (شمسی)</label>
+                  <input type="text" name="contract_end" class="form-control" value="{{ d.contract_end | jalali if d.contract_end else '' }}">
+                </div>
+
+                <div class="col-md-4">
+                  <label class="form-label" style="font-size:.82rem;">سهم پزشک از هزینه مصرفی (%)</label>
+                  <input type="number" name="doctor_percentage" class="form-control" value="{{ d.doctor_percentage }}" min="0" max="100" required>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" style="font-size:.82rem;">سهم کلینیک از باقیمانده (%)</label>
+                  <input type="number" name="clinic_percentage" class="form-control" value="{{ d.clinic_percentage }}" min="0" max="100" required>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" style="font-size:.82rem;">سهم شریک بخش تغذیه از باقیمانده (%)</label>
+                  <input type="number" name="partner_percentage" class="form-control" value="{{ d.partner_percentage }}" min="0" max="100" required>
+                </div>
+
+                <div class="col-12">
+                  <label class="form-label" style="font-size:.82rem;">توضیحات قرارداد (اختیاری)</label>
+                  <input type="text" name="contract_notes" class="form-control" value="{{ d.contract_notes or '' }}">
+                </div>
+                <div class="col-12">
+                  <label class="form-label" style="font-size:.82rem;">توضیحات پزشک (اختیاری)</label>
+                  <input type="text" name="notes" class="form-control" value="{{ d.notes or '' }}">
+                </div>
+                <div class="col-12">
+                  <button class="btn btn-primary btn-sm" type="submit">ذخیره تغییرات</button>
+                  <button class="btn btn-light border btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#cpEditRow{{ d.id }}">انصراف</button>
+                </div>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="text-muted text-center py-4">هنوز پزشکی ثبت نشده است.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

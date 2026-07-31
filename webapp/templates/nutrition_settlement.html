@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% from "_help.html" import help_box %}
+{% block content %}
+
+{% call help_box() %}
+<p>محاسبه به‌صورت زنده از روی درآمد و هزینه‌های ثبت‌شدهٔ همان ماه انجام می‌شود — نیازی به ورود دستی اعداد نیست.</p>
+<p>«ذخیرهٔ تسویه» یک رکورد دائمی از این ماه می‌سازد (برای گزارش‌گیری بعدی). ذخیرهٔ دوباره برای همان ماه، رکورد قبلی را جایگزین می‌کند.</p>
+{% endcall %}
+
+<div class="cp-card p-3 mb-3 d-print-none">
+  <form action="/nutrition/settlement" method="get" class="d-flex gap-2 align-items-end flex-wrap">
+    <div>
+      <label class="form-label" style="font-size:.8rem;">سال</label>
+      <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">
+        {% for y in year_range %}<option value="{{ y }}" {{ 'selected' if y == sel_year }}>{{ y }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="form-label" style="font-size:.8rem;">ماه</label>
+      <select name="month" class="form-select form-select-sm" onchange="this.form.submit()">
+        {% for m, label in jalali_months %}<option value="{{ m }}" {{ 'selected' if m == sel_month }}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+  </form>
+</div>
+
+{% if not active_doctor %}
+<div class="alert alert-warning" style="font-size:.85rem;">
+  هیچ پزشک فعالی برای بخش تغذیه ثبت نشده — ابتدا از صفحهٔ «پزشکان و قرارداد» یک پزشک را فعال کنید.
+</div>
+{% else %}
+
+<div class="d-flex justify-content-between align-items-center mb-3 d-print-none">
+  <div style="font-size:.9rem;">
+    تسویهٔ <b>{{ month_label }} {{ sel_year }}</b> برای <b>{{ active_doctor.full_name }}</b>
+    {% if already_saved %}<span class="cp-status ok">ذخیره شده</span>{% else %}<span class="cp-status muted">ذخیره نشده</span>{% endif %}
+  </div>
+  <div class="d-flex gap-2">
+    <form action="/nutrition/settlement/save" method="post" class="d-inline">
+      <input type="hidden" name="year" value="{{ sel_year }}"><input type="hidden" name="month" value="{{ sel_month }}">
+      <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-save"></i> ذخیرهٔ تسویه</button>
+    </form>
+    <a href="/nutrition/settlement/export.csv?year={{ sel_year }}&month={{ sel_month }}" class="btn btn-sm btn-light border"><i class="bi bi-file-earmark-excel"></i> خروجی اکسل (CSV)</a>
+    <button type="button" class="btn btn-sm btn-light border" onclick="window.print()"><i class="bi bi-printer"></i> چاپ / PDF</button>
+  </div>
+</div>
+
+<div class="cp-card p-4">
+  <div class="d-flex align-items-center justify-content-between border-bottom pb-3 mb-3">
+    <div class="fw-bold">تسویه‌حساب بخش تغذیه — {{ month_label }} {{ sel_year }}</div>
+    <div class="text-muted" style="font-size:.8rem;">پزشک: {{ active_doctor.full_name }} · سهم پزشک {{ breakdown.doctor_pct }}% / کلینیک {{ breakdown.clinic_pct }}% / شریک {{ breakdown.partner_pct }}%</div>
+  </div>
+
+  <table class="table table-borderless mb-0" style="font-size:.9rem;">
+    <tr><td style="width:60%;">درآمد ناخالص بخش تغذیه</td><td class="text-end fw-semibold" dir="ltr">{{ '{:,}'.format(breakdown.gross_revenue) }}</td></tr>
+    <tr><td>هزینه‌های مصرفی (کل)</td><td class="text-end" dir="ltr">{{ '{:,}'.format(breakdown.consumable_expenses) }}</td></tr>
+    <tr><td class="text-muted ps-4">— سهم پزشک از هزینهٔ مصرفی ({{ breakdown.doctor_pct }}%)</td><td class="text-end text-muted" dir="ltr">− {{ '{:,}'.format(breakdown.doctor_consumable_cut) }}</td></tr>
+    <tr><td class="text-muted ps-4">— سهم کلینیک/شریک از هزینهٔ مصرفی</td><td class="text-end text-muted" dir="ltr">− {{ '{:,}'.format(breakdown.other_consumable_cut) }}</td></tr>
+    <tr><td>هزینه‌های غیرمصرفی (فقط کسر از کلینیک/شریک)</td><td class="text-end" dir="ltr">− {{ '{:,}'.format(breakdown.non_consumable_expenses) }}</td></tr>
+    <tr class="border-top"><td class="fw-bold pt-2">سهم پزشک</td><td class="text-end fw-bold pt-2" dir="ltr">{{ '{:,}'.format(breakdown.doctor_share) }}</td></tr>
+    <tr><td class="fw-bold">باقیماندهٔ قابل تقسیم بین کلینیک و شریک</td><td class="text-end fw-bold" dir="ltr">{{ '{:,}'.format(breakdown.remaining) }}</td></tr>
+  </table>
+
+  <div class="row g-3 mt-1">
+    <div class="col-6">
+      <div class="cp-kpi">
+        <div class="cp-kpi-icon" style="background:#e6f5f4; color:#0b756f;"><i class="bi bi-building"></i></div>
+        <div><div class="cp-kpi-label">سهم کلینیک ({{ breakdown.clinic_pct }}%)</div><div class="cp-kpi-value" dir="ltr">{{ '{:,}'.format(breakdown.clinic_share) }}</div></div>
+      </div>
+    </div>
+    <div class="col-6">
+      <div class="cp-kpi">
+        <div class="cp-kpi-icon" style="background:#e3f6e8; color:#1c7a3c;"><i class="bi bi-people"></i></div>
+        <div><div class="cp-kpi-label">سهم شریک بخش تغذیه ({{ breakdown.partner_pct }}%)</div><div class="cp-kpi-value" dir="ltr">{{ '{:,}'.format(breakdown.partner_share) }}</div></div>
+      </div>
+    </div>
+  </div>
+
+  {% set total_split = breakdown.doctor_share + breakdown.clinic_share + breakdown.partner_share %}
+  {% if total_split > 0 %}
+  <div class="mt-4">
+    <div class="text-muted mb-1" style="font-size:.78rem;">نسبت تقسیم درآمد</div>
+    <div class="d-flex rounded-2 overflow-hidden" style="height:22px;">
+      <div style="width:{{ (breakdown.doctor_share / total_split * 100) if breakdown.doctor_share > 0 else 0 }}%; background:#0b756f;" title="پزشک"></div>
+      <div style="width:{{ (breakdown.clinic_share / total_split * 100) if breakdown.clinic_share > 0 else 0 }}%; background:#1c7a3c;" title="کلینیک"></div>
+      <div style="width:{{ (breakdown.partner_share / total_split * 100) if breakdown.partner_share > 0 else 0 }}%; background:#8a5a00;" title="شریک بخش تغذیه"></div>
+    </div>
+    <div class="d-flex gap-3 mt-1" style="font-size:.75rem;">
+      <span><span class="d-inline-block rounded-circle" style="width:9px;height:9px;background:#0b756f;"></span> پزشک</span>
+      <span><span class="d-inline-block rounded-circle" style="width:9px;height:9px;background:#1c7a3c;"></span> کلینیک</span>
+      <span><span class="d-inline-block rounded-circle" style="width:9px;height:9px;background:#8a5a00;"></span> شریک بخش تغذیه</span>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% endif %}
+
+{% if past_settlements %}
+<div class="cp-card p-3 mt-3 d-print-none">
+  <div class="cp-section-title mb-3">تسویه‌های ذخیره‌شدهٔ قبلی</div>
+  <div class="table-responsive">
+    <table class="table cp-table mb-0">
+      <thead><tr><th>دوره</th><th>پزشک</th><th>درآمد ناخالص</th><th>سهم پزشک</th><th>سهم کلینیک</th><th>سهم شریک</th></tr></thead>
+      <tbody>
+        {% for s in past_settlements %}
+        <tr>
+          <td>{{ s.period_start | jalali }} تا {{ s.period_end | jalali }}</td>
+          <td>{{ s.doctor_name }}</td>
+          <td>{{ '{:,}'.format(s.gross_revenue) }}</td>
+          <td>{{ '{:,}'.format(s.doctor_share) }}</td>
+          <td>{{ '{:,}'.format(s.clinic_share) }}</td>
+          <td>{{ '{:,}'.format(s.partner_share) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

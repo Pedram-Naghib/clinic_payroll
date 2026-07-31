@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% from "_help.html" import help_box %}
+{% block content %}
+
+{% call help_box() %}
+<p>هر ویزیت/سرویس بیمار به‌عنوان یک ردیف درآمد ثبت می‌شود و پایهٔ محاسبهٔ تسویهٔ ماهانه است.</p>
+{% endcall %}
+
+<div class="cp-kpi mb-3" style="max-width:280px;">
+  <div class="cp-kpi-icon" style="background:#e3f6e8; color:#1c7a3c;"><i class="bi bi-cash-coin"></i></div>
+  <div><div class="cp-kpi-label">جمع کل درآمد ثبت‌شده</div><div class="cp-kpi-value">{{ '{:,}'.format(total_amount) }}</div></div>
+</div>
+
+<div class="cp-card p-3 mb-3">
+  <div class="cp-section-title">ثبت درآمد جدید</div>
+  <form class="row g-3 align-items-end" action="/nutrition/revenues/new" method="post">
+    <div class="col-md-2">
+      <label class="form-label" style="font-size:.82rem;">تاریخ (شمسی)</label>
+      <input type="text" name="date" class="form-control" placeholder="1405/04/10" required autofocus>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label" style="font-size:.82rem;">نام بیمار (اختیاری)</label>
+      <input type="text" name="patient_name" class="form-control">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label" style="font-size:.82rem;">نوع خدمت (اختیاری)</label>
+      <input type="text" name="service_type" class="form-control" placeholder="مثلا: ویزیت، لاغری موضعی">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label" style="font-size:.82rem;">مبلغ (ریال)</label>
+      <input type="text" name="amount" class="form-control" inputmode="numeric" required>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label" style="font-size:.82rem;">پزشک</label>
+      <select name="doctor_id" class="form-select" required>
+        {% for d in doctors %}<option value="{{ d.id }}" {{ 'selected' if d.active }}>{{ d.full_name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-12">
+      <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-plus-lg"></i> ثبت درآمد</button>
+    </div>
+  </form>
+</div>
+
+<div class="cp-card">
+  <div class="table-responsive">
+    <table class="table cp-table mb-0">
+      <thead><tr>
+        <th>تاریخ</th><th>بیمار</th><th>نوع خدمت</th><th>پزشک</th><th>مبلغ</th><th></th>
+      </tr></thead>
+      <tbody>
+        {% for r in revenues %}
+        <tr>
+          <td>{{ r.date | jalali }}</td>
+          <td>{{ r.patient_name or '—' }}</td>
+          <td>{{ r.service_type or '—' }}</td>
+          <td>{{ r.doctor_name }}</td>
+          <td class="fw-semibold">{{ '{:,}'.format(r.amount) }}</td>
+          <td class="text-end text-nowrap">
+            <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#cpEditRev{{ r.id }}">ویرایش</button>
+            <form action="/nutrition/revenues/{{ r.id }}/delete" method="post" class="d-inline">
+              <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('این درآمد حذف شود؟');">حذف</button>
+            </form>
+          </td>
+        </tr>
+        <tr class="collapse" id="cpEditRev{{ r.id }}">
+          <td colspan="6">
+            <div class="cp-card p-3 my-2">
+              <form class="row g-3 align-items-end" action="/nutrition/revenues/{{ r.id }}/edit" method="post">
+                <div class="col-md-2">
+                  <label class="form-label" style="font-size:.82rem;">تاریخ (شمسی)</label>
+                  <input type="text" name="date" class="form-control" value="{{ r.date | jalali }}" required>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label" style="font-size:.82rem;">نام بیمار</label>
+                  <input type="text" name="patient_name" class="form-control" value="{{ r.patient_name or '' }}">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label" style="font-size:.82rem;">نوع خدمت</label>
+                  <input type="text" name="service_type" class="form-control" value="{{ r.service_type or '' }}">
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label" style="font-size:.82rem;">مبلغ (ریال)</label>
+                  <input type="text" name="amount" class="form-control" value="{{ r.amount }}" required>
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label" style="font-size:.82rem;">پزشک</label>
+                  <select name="doctor_id" class="form-select" required>
+                    {% for d in doctors %}<option value="{{ d.id }}" {{ 'selected' if d.id == r.doctor_id }}>{{ d.full_name }}</option>{% endfor %}
+                  </select>
+                </div>
+                <div class="col-12">
+                  <button class="btn btn-primary btn-sm" type="submit">ذخیره تغییرات</button>
+                  <button class="btn btn-light border btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#cpEditRev{{ r.id }}">انصراف</button>
+                </div>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="text-muted text-center py-4">درآمدی ثبت نشده است.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

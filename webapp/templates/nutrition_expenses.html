@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% from "_help.html" import help_box %}
+{% block content %}
+
+{% call help_box() %}
+<p>فاکتور هزینه رو با فرم بالای جدول ثبت کنید — نوع هزینه (مصرفی/غیرمصرفی) رو فقط با یک کلیک روی دکمه‌اش انتخاب کنید، دیگه نیازی به لیست کشویی نیست.</p>
+<p><b>مصرفی:</b> بین پزشک و بقیهٔ طرف‌ها مساوی تقسیم می‌شود. <b>غیرمصرفی:</b> فقط از سهم کلینیک و شریک بخش تغذیه کسر می‌شود.</p>
+{% endcall %}
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-3">
+    <div class="cp-kpi">
+      <div class="cp-kpi-icon" style="background:#fdf1d6; color:#8a5a00;"><i class="bi bi-basket"></i></div>
+      <div><div class="cp-kpi-label">جمع هزینهٔ مصرفی</div><div class="cp-kpi-value">{{ '{:,}'.format(total_consumable) }}</div></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="cp-kpi">
+      <div class="cp-kpi-icon" style="background:#fbe4e4; color:#a3272c;"><i class="bi bi-tools"></i></div>
+      <div><div class="cp-kpi-label">جمع هزینهٔ غیرمصرفی</div><div class="cp-kpi-value">{{ '{:,}'.format(total_non_consumable) }}</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="cp-card p-3 mb-3">
+  <div class="cp-section-title">ثبت فاکتور هزینه جدید</div>
+  <form class="row g-3 align-items-end" action="/nutrition/expenses/new" method="post" id="cpExpenseForm">
+    <div class="col-md-2">
+      <label class="form-label" style="font-size:.82rem;">تاریخ (شمسی)</label>
+      <input type="text" name="date" id="cpExpenseDate" class="form-control" placeholder="1405/04/10" required autofocus>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label" style="font-size:.82rem;">عنوان هزینه</label>
+      <input type="text" name="title" class="form-control" placeholder="مثلا: خرید مواد مصرفی ماساژ" required>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label" style="font-size:.82rem;">مبلغ (ریال)</label>
+      <input type="text" name="amount" id="cpExpenseAmount" class="form-control" inputmode="numeric" required>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label d-block" style="font-size:.82rem;">نوع هزینه</label>
+      <div class="btn-group w-100" role="group">
+        <input type="radio" class="btn-check" name="expense_type" id="cpTypeConsumable" value="consumable" checked>
+        <label class="btn btn-outline-warning btn-sm" for="cpTypeConsumable">مصرفی</label>
+        <input type="radio" class="btn-check" name="expense_type" id="cpTypeNonConsumable" value="non_consumable">
+        <label class="btn btn-outline-danger btn-sm" for="cpTypeNonConsumable">غیرمصرفی</label>
+      </div>
+    </div>
+    <div class="col-md-1">
+      <button class="btn btn-primary btn-sm w-100" type="submit"><i class="bi bi-plus-lg"></i> ثبت</button>
+    </div>
+  </form>
+</div>
+
+<div class="d-flex gap-2 mb-3">
+  <a href="/nutrition/expenses" class="btn btn-sm {{ 'btn-primary' if not sel_expense_type else 'btn-light border' }}">همه</a>
+  {% for value, label in expense_types.items() %}
+  <a href="/nutrition/expenses?expense_type={{ value }}" class="btn btn-sm {{ 'btn-primary' if sel_expense_type == value else 'btn-light border' }}">{{ label }}</a>
+  {% endfor %}
+</div>
+
+<div class="cp-card">
+  <div class="table-responsive">
+    <table class="table cp-table mb-0">
+      <thead><tr>
+        <th>تاریخ</th><th>عنوان</th><th>نوع</th><th>مبلغ</th><th></th>
+      </tr></thead>
+      <tbody>
+        {% for e in expenses %}
+        <tr>
+          <td>{{ e.date | jalali }}</td>
+          <td class="fw-semibold">{{ e.title }}</td>
+          <td><span class="cp-status {{ 'warn' if e.expense_type == 'consumable' else 'danger' }}">{{ expense_types[e.expense_type] }}</span></td>
+          <td>{{ '{:,}'.format(e.amount) }}</td>
+          <td class="text-end text-nowrap">
+            <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#cpEditExp{{ e.id }}">ویرایش</button>
+            <form action="/nutrition/expenses/{{ e.id }}/delete" method="post" class="d-inline">
+              <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('این هزینه حذف شود؟');">حذف</button>
+            </form>
+          </td>
+        </tr>
+        <tr class="collapse" id="cpEditExp{{ e.id }}">
+          <td colspan="5">
+            <div class="cp-card p-3 my-2">
+              <form class="row g-3 align-items-end" action="/nutrition/expenses/{{ e.id }}/edit" method="post">
+                <div class="col-md-2">
+                  <label class="form-label" style="font-size:.82rem;">تاریخ (شمسی)</label>
+                  <input type="text" name="date" class="form-control" value="{{ e.date | jalali }}" required>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" style="font-size:.82rem;">عنوان هزینه</label>
+                  <input type="text" name="title" class="form-control" value="{{ e.title }}" required>
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label" style="font-size:.82rem;">مبلغ (ریال)</label>
+                  <input type="text" name="amount" class="form-control" value="{{ e.amount }}" required>
+                </div>
+                <div class="col-md-3">
+                  <div class="btn-group w-100" role="group">
+                    <input type="radio" class="btn-check" name="expense_type" id="cpEditType1{{ e.id }}" value="consumable" {{ 'checked' if e.expense_type == 'consumable' }}>
+                    <label class="btn btn-outline-warning btn-sm" for="cpEditType1{{ e.id }}">مصرفی</label>
+                    <input type="radio" class="btn-check" name="expense_type" id="cpEditType2{{ e.id }}" value="non_consumable" {{ 'checked' if e.expense_type == 'non_consumable' }}>
+                    <label class="btn btn-outline-danger btn-sm" for="cpEditType2{{ e.id }}">غیرمصرفی</label>
+                  </div>
+                </div>
+                <div class="col-md-1">
+                  <button class="btn btn-primary btn-sm w-100" type="submit">ذخیره</button>
+                </div>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="text-muted text-center py-4">هزینه‌ای ثبت نشده است.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  // Fast repeat-entry: after a successful add, the form reloads empty --
+  // this just re-focuses the amount field's neighbour (date) for the next row.
+  document.getElementById('cpExpenseForm')?.addEventListener('submit', () => {
+    sessionStorage.setItem('cpLastExpenseDate', document.getElementById('cpExpenseDate').value);
+  });
+  const lastDate = sessionStorage.getItem('cpLastExpenseDate');
+  if (lastDate) document.getElementById('cpExpenseDate').value = lastDate;
+</script>
+
+{% endblock %}
