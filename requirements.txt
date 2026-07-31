@@ -7,4 +7,4 @@ PySide6_Addons==6.11.1
 PySide6_Essentials==6.11.1
 shiboken6==6.11.1
 # hijri_converter was depricated so I replaced it with hijridate
-hijridate==2.3.0
+hijridate==2.6.0
