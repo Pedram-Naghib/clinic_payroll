@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% from "_help.html" import help_box %}
+{% block content %}
+
+{% call help_box() %}
+<h6>این صفحه چه کاری انجام می‌دهد؟</h6>
+<p>تمام مقادیر سراسری که در محاسبهٔ حقوق استفاده می‌شوند از همین‌جا قابل تغییرند — درصدها، مبالغ ثابت، سقف‌ها — بدون نیاز به تغییر کد برنامه.</p>
+<h6>ویرایش یک مقدار</h6>
+<p>مقدار موردنظر را در ستون «مقدار» تغییر دهید و «ذخیره تغییرات» را بزنید. هر تغییر، فقط از <b>محاسبات بعدی</b> اثر می‌گذارد — اجراهای حقوق قبلاً ذخیره‌شده دست‌نخورده می‌مانند.</p>
+<h6>افزودن متغیر جدید</h6>
+<p>در حالت عادی نیازی به این کار نیست (متغیرهای موجود کافی‌اند)، اما اگر لازم شد، «افزودن متغیر جدید» یک ردیف تنظیمات کاملاً جدید می‌سازد. کلید (Key) باید انگلیسی و بدون فاصله باشد، چون در کد به همین شکل خوانده می‌شود.</p>
+<div class="cp-help-note">این صفحه فقط برای دسترسی «مدیر» (Owner) قابل مشاهده و ویرایش است. دقت کنید نوع دادهٔ هر مقدار (عدد صحیح، اعشاری، متن) با مقدار وارد‌شده هم‌خوانی داشته باشد، وگرنه سیستم خطا می‌دهد و ذخیره نمی‌کند.</div>
+{% endcall %}
+
+<div class="cp-card p-3 mb-3">
+  <div class="text-muted" style="font-size:.85rem;">
+    هر متغیر سراسری را در جدول زیر ویرایش کرده و دکمهٔ «ذخیره تغییرات» را کلیک کنید. این مقادیر در تمام محاسبات حقوق در سراسر برنامه استفاده می‌شوند — نیازی به تغییر کد نیست.
+  </div>
+</div>
+
+{% if saved %}<div class="alert alert-success py-2 mb-3" style="font-size:.85rem;">تنظیمات با موفقیت ذخیره شد.</div>{% endif %}
+{% if error %}<div class="alert alert-danger py-2 mb-3" style="font-size:.85rem;">{{ error }}</div>{% endif %}
+
+<div class="d-flex justify-content-end mb-3">
+  <button class="btn btn-primary btn-sm" onclick="cpAddConfigModal.show()"><i class="bi bi-plus-lg"></i> افزودن متغیر جدید</button>
+</div>
+
+<form action="/payroll/config/save" method="post">
+  <div class="cp-card mb-3">
+    <div class="table-responsive">
+      <table class="table cp-table mb-0">
+        <thead><tr>
+          <th>عنوان</th><th>مقدار</th><th>دسته‌بندی</th><th>توضیحات</th><th>کلید</th><th>نوع داده</th>
+        </tr></thead>
+        <tbody>
+          {% for row in config_rows %}
+          <tr>
+            <td class="fw-semibold">{{ row.label_fa }}</td>
+            <td><input type="text" class="form-control form-control-sm" name="value__{{ row.key }}" value="{{ row.value }}" style="min-width:140px;"></td>
+            <td>{{ row.category_fa }}</td>
+            <td class="text-muted" style="font-size:.82rem;">{{ row.desc_fa }}</td>
+            <td dir="ltr" class="text-muted" style="font-size:.78rem;">{{ row.key }}</td>
+            <td>{{ row.value_type }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <button type="submit" class="btn btn-primary btn-sm">ذخیره تغییرات</button>
+</form>
+
+<div class="modal fade" id="cpAddConfigModalEl" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">افزودن متغیر تنظیمات جدید</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form action="/payroll/config/add" method="post">
+        <div class="modal-body row g-3">
+          <div class="col-12">
+            <label class="form-label" style="font-size:.82rem;">کلید (بدون فاصله)</label>
+            <input type="text" name="key" class="form-control" dir="ltr" required>
+          </div>
+          <div class="col-12">
+            <label class="form-label" style="font-size:.82rem;">عنوان</label>
+            <input type="text" name="label" class="form-control" required>
+          </div>
+          <div class="col-6">
+            <label class="form-label" style="font-size:.82rem;">مقدار</label>
+            <input type="text" name="value" class="form-control" required>
+          </div>
+          <div class="col-6">
+            <label class="form-label" style="font-size:.82rem;">نوع داده</label>
+            <select name="value_type" class="form-select">
+              <option value="int">int</option>
+              <option value="float">float</option>
+              <option value="text">text</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label" style="font-size:.82rem;">دسته‌بندی</label>
+            <input type="text" name="category" class="form-control" value="general">
+          </div>
+          <div class="col-12">
+            <label class="form-label" style="font-size:.82rem;">توضیحات</label>
+            <input type="text" name="description" class="form-control">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light border" data-bs-dismiss="modal">انصراف</button>
+          <button type="submit" class="btn btn-primary">افزودن</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  let cpAddConfigModal;
+  document.addEventListener('DOMContentLoaded', () => {
+    cpAddConfigModal = new bootstrap.Modal(document.getElementById('cpAddConfigModalEl'));
+  });
+</script>
+
+{% endblock %}

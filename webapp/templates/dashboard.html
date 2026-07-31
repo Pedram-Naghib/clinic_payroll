@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% from "_help.html" import help_box %}
+{% block content %}
+
+{% call help_box() %}
+<h6>این صفحه چه چیزی نشان می‌دهد؟</h6>
+<p>داشبورد یک نمای کلی و لحظه‌ای از وضعیت مالی کلینیک است — چهار عدد کلیدی («کارت‌های خلاصه») بالای صفحه، و دو جدول در پایین. همهٔ اعداد این صفحه زنده و از دیتابیس واقعی خوانده می‌شوند؛ نیازی به رفرش دستی یا محاسبهٔ جداگانه نیست.</p>
+<h6>کارت‌های خلاصهٔ بالای صفحه</h6>
+<ul>
+  <li><b>پرسنل فعال:</b> تعداد کارمندانی که در صفحهٔ «پرسنل» غیرفعال نشده‌اند.</li>
+  <li><b>حقوق ماه جاری:</b> جمع خالص پرداختی همهٔ کارکنان، فقط اگر برای ماه شمسی جاری قبلاً از صفحهٔ «اجرای حقوق» یک اجرا <b>ذخیره</b> شده باشد؛ در غیر این صورت عدد صفر نشان داده می‌شود (چون هنوز محاسبه‌ای ثبت نشده).</li>
+  <li><b>صورت‌حساب بیمه (باز):</b> تعداد صورت‌حساب‌های بیمه‌ای که هنوز به‌طور کامل تسویه نشده‌اند (بدون پرداخت یا با مغایرت).</li>
+  <li><b>مانده مطالبات بیمه:</b> مجموع مبلغی که واقعاً هنوز از شرکت‌های بیمه طلبکار هستید — این عدد شامل کسوراتی که خودِ بیمه رسماً رد کرده <b>نمی‌شود</b> (آن مبلغ هرگز پرداخت نخواهد شد، پس بدهی حساب نمی‌شود).</li>
+</ul>
+<h6>جدول‌های پایین صفحه</h6>
+<ul>
+  <li><b>آخرین صورت‌حساب‌های بیمه:</b> ۴ صورت‌حساب آخر با وضعیت رنگی (سبز = تسویه شده، زرد = در انتظار، قرمز = مغایرت).</li>
+  <li><b>پیشنهادهای تطبیق پرداخت:</b> بهترین پیشنهاد سیستم برای اینکه هر پرداخت دریافتی از بیمه، مربوط به کدام صورت‌حساب است — همان موتور تطبیق صفحهٔ «تطبیق پرداخت‌ها» را نشان می‌دهد. برای تأیید یا رد، روی «مشاهده همه پیشنهادها» کلیک کنید.</li>
+</ul>
+<div class="cp-help-note">اگر عدد «حقوق ماه جاری» صفر است اما امیدوارید عددی ببینید، به این معناست که هنوز برای این ماه از صفحهٔ «اجرای حقوق» محاسبه‌ای <b>ذخیره</b> نشده — فقط اجرا کردن (بدون ذخیره) در داشبورد اثری ندارد.</div>
+{% endcall %}
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3">
+    <div class="cp-kpi">
+      <div class="cp-kpi-icon" style="background:#e6f5f4; color:#0b756f;"><i class="bi bi-people-fill"></i></div>
+      <div>
+        <div class="cp-kpi-label">پرسنل فعال</div>
+        <div class="cp-kpi-value">{{ kpi_active_employees }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="cp-kpi">
+      <div class="cp-kpi-icon" style="background:#fdecd2; color:#8a5a00;"><i class="bi bi-cash-coin"></i></div>
+      <div>
+        <div class="cp-kpi-label">حقوق {{ kpi_month_label }} (ریال)</div>
+        <div class="cp-kpi-value">{{ '{:,}'.format(kpi_month_payroll_total) }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="cp-kpi">
+      <div class="cp-kpi-icon" style="background:#e3f6e8; color:#1c7a3c;"><i class="bi bi-file-earmark-check"></i></div>
+      <div>
+        <div class="cp-kpi-label">صورت‌حساب بیمه (باز)</div>
+        <div class="cp-kpi-value">{{ kpi_open_invoices }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="cp-kpi">
+      <div class="cp-kpi-icon" style="background:#fbe4e4; color:#a3272c;"><i class="bi bi-exclamation-triangle-fill"></i></div>
+      <div>
+        <div class="cp-kpi-label">مانده مطالبات بیمه</div>
+        <div class="cp-kpi-value">{{ '{:,}'.format(kpi_outstanding_balance) }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="cp-card p-3">
+      <div class="cp-section-title">آخرین صورت‌حساب‌های بیمه</div>
+      <div class="table-responsive">
+        <table class="table cp-table mb-0">
+          <thead><tr>
+            <th>شرکت بیمه</th><th>دوره</th><th>مبلغ صورت‌حساب</th><th>وضعیت</th>
+          </tr></thead>
+          <tbody>
+            {% for inv in latest_invoices %}
+            <tr>
+              <td>{{ inv.company_name }}</td>
+              <td>{{ inv.period_start | jalali }}</td>
+              <td>{{ '{:,}'.format(inv.amount) }}</td>
+              <td><span class="cp-status {{ inv.status_class }}">{{ inv.status }}</span></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-muted text-center py-3">صورت‌حسابی ثبت نشده است.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="cp-card p-3 h-100">
+      <div class="cp-section-title">پیشنهادهای تطبیق پرداخت</div>
+      <div class="d-flex flex-column gap-2">
+        {% for s in match_suggestions %}
+        <div class="d-flex justify-content-between align-items-center border rounded-3 p-2 px-3">
+          <div>
+            <div style="font-size:.85rem; font-weight:600;">پرداخت {{ '{:,}'.format(s.payment.amount) }}</div>
+            <div class="text-muted" style="font-size:.75rem;">{{ s.payment.company_name }} · {{ s.payment.received_date | jalali }}</div>
+          </div>
+          <span class="badge rounded-pill" style="background:#e6f5f4; color:#0b756f;">{{ s.invoice.score }}% تطابق</span>
+        </div>
+        {% else %}
+        <div class="text-muted text-center py-3" style="font-size:.85rem;">پیشنهاد تطبیقی موجود نیست.</div>
+        {% endfor %}
+        <a href="/insurance/reconciliation" class="btn btn-sm btn-outline-primary mt-2">مشاهده همه پیشنهادها</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

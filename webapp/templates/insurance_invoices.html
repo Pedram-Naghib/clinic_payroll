@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% from "_help.html" import help_box %}
+{% block content %}
+
+{% call help_box() %}
+<ul>
+  <li><span class="cp-status ok">تسویه شده</span> — چیزی باقی نمانده.</li>
+  <li><span class="cp-status warn">در انتظار پرداخت</span> — نه پرداختی ثبت شده نه کسوراتی.</li>
+  <li><span class="cp-status danger">مغایرت</span> — بخشی ثبت شده، هنوز مانده‌ای هست.</li>
+</ul>
+<p>ثبت کسورات از صفحهٔ جزئیات همون صورت‌حساب انجام می‌شه. مبلغ صورت‌حساب به <b>ریال</b>.</p>
+<p>هر بیمه رو جدا برای درمانگاه/فیزیوتراپی/آزمایشگاه ثبت کنید، حتی اگه بیمه چندتاشون رو با هم پرداخت می‌کنه — تقسیمش موقع تطبیق پرداخت انجام می‌شه.</p>
+{% endcall %}
+
+{% set total_amount = invoices | sum(attribute='amount') %}
+{% set total_paid = invoices | sum(attribute='paid') %}
+{% set total_deduction = invoices | sum(attribute='insurer_deduction') %}
+{% set open_count = invoices | selectattr('status', 'equalto', 'در انتظار پرداخت') | list | length %}
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3">
+    <div class="cp-kpi">
+      <div class="cp-kpi-icon" style="background:#e6f5f4; color:#0b756f;"><i class="bi bi-file-earmark-medical"></i></div>
+      <div><div class="cp-kpi-label">مجموع صورت‌حساب</div><div class="cp-kpi-value">{{ '{:,}'.format(total_amount) }}</div></div>
+    </div>
+  </div>
+  {% if role == 'owner' %}
+  <div class="col-6 col-xl-3">
+    <div class="cp-kpi">
+      <div class="cp-kpi-icon" style="background:#e3f6e8; color:#1c7a3c;"><i class="bi bi-cash"></i></div>
+      <div><div class="cp-kpi-label">مجموع پرداختی</div><div class="cp-kpi-value">{{ '{:,}'.format(total_paid) }}</div></div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="cp-kpi">
+      <div class="cp-kpi-icon" style="background:#fbe4e4; color:#a3272c;"><i class="bi bi-graph-down-arrow"></i></div>
+      <div><div class="cp-kpi-label">مجموع کسورات</div><div class="cp-kpi-value">{{ '{:,}'.format(total_deduction) }}</div></div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="cp-kpi">
+      <div class="cp-kpi-icon" style="background:#fdf1d6; color:#8a5a00;"><i class="bi bi-hourglass-split"></i></div>
+      <div><div class="cp-kpi-label">صورت‌حساب معلق</div><div class="cp-kpi-value">{{ open_count }}</div></div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <form action="/insurance/invoices" method="get" class="d-flex gap-2">
+    <select name="company_id" class="form-select form-select-sm" style="width:170px" onchange="this.form.submit()">
+      <option value="">همه شرکت‌های بیمه</option>
+      {% for co in companies %}<option value="{{ co.id }}" {{ 'selected' if co.id == sel_company_id }}>{{ co.name }}</option>{% endfor %}
+    </select>
+  </form>
+  <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#cpNewInvoiceForm"><i class="bi bi-plus-lg"></i> ثبت صورت‌حساب جدید</button>
+</div>
+
+<div class="collapse mb-3" id="cpNewInvoiceForm">
+  <div class="cp-card p-3">
+    <div class="cp-section-title">صورت‌حساب جدید</div>
+    <form class="row g-3" action="/insurance/invoices/new" method="post">
+      <div class="col-md-4">
+        <label class="form-label" style="font-size:.82rem;">شرکت بیمه</label>
+        <select name="company_id" class="form-select" required>
+          {% for co in companies %}<option value="{{ co.id }}">{{ co.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" style="font-size:.82rem;">بخش</label>
+        <select name="department" class="form-select" required>
+          {% for value, label in departments.items() %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" style="font-size:.82rem;">شماره صورت‌حساب (اختیاری)</label>
+        <input type="text" name="invoice_number" class="form-control" dir="ltr">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" style="font-size:.82rem;">مبلغ صورت‌حساب (ریال)</label>
+        <input type="text" name="amount" class="form-control" required>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" style="font-size:.82rem;">شروع دوره (شمسی)</label>
+        <input type="text" name="period_start" class="form-control" placeholder="1404/04/01" required>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" style="font-size:.82rem;">پایان دوره (شمسی)</label>
+        <input type="text" name="period_end" class="form-control" placeholder="1404/05/01" required>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" style="font-size:.82rem;">تاریخ صدور (اختیاری، شمسی)</label>
+        <input type="text" name="issued_date" class="form-control" placeholder="1404/04/05">
+      </div>
+      <div class="col-12">
+        <label class="form-label" style="font-size:.82rem;">توضیحات (اختیاری)</label>
+        <input type="text" name="notes" class="form-control">
+      </div>
+      <div class="col-12">
+        <button class="btn btn-primary btn-sm" type="submit">ثبت صورت‌حساب</button>
+        <button class="btn btn-light border btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#cpNewInvoiceForm">انصراف</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="cp-card">
+  <div class="table-responsive">
+    <table class="table cp-table mb-0">
+      <thead><tr>
+        <th>شرکت بیمه</th>
+        <th>بخش</th>
+        <th>دوره</th>
+        <th>شماره صورت‌حساب</th>
+        <th>مبلغ صورت‌حساب</th>
+        {% if role == 'owner' %}
+        <th>مبلغ دریافتی</th>
+        <th>کسورات بیمه</th>
+        <th>مانده</th>
+        <th>وضعیت</th>
+        <th></th>
+        {% endif %}
+      </tr></thead>
+      <tbody>
+        {% for inv in invoices %}
+        <tr>
+          <td class="fw-semibold">{{ inv.company_name }}</td>
+          <td>{{ inv.department_label }}</td>
+          <td>{{ inv.period_start | jalali }} تا {{ inv.period_end | jalali }}</td>
+          <td dir="ltr">{{ inv.invoice_number or '—' }}</td>
+          <td>{{ '{:,}'.format(inv.amount) }}</td>
+          {% if role == 'owner' %}
+          <td>{{ '{:,}'.format(inv.paid) }}</td>
+          <td>{{ '{:,}'.format(inv.insurer_deduction) if inv.insurer_deduction else '—' }}</td>
+          <td>{{ '{:,}'.format(inv.outstanding) }}</td>
+          <td><span class="cp-status {{ inv.status_class }}">{{ inv.status }}</span></td>
+          <td class="text-end text-nowrap">
+            <a href="/insurance/invoices/{{ inv.id }}" class="btn btn-sm btn-light border">مشاهده</a>
+            {% if inv.status != 'تسویه شده' %}
+            <a href="/insurance/reconciliation" class="btn btn-sm btn-light border">تطبیق</a>
+            {% endif %}
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

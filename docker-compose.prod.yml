@@ -1,0 +1,65 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-clinic_payroll}
+      POSTGRES_USER: ${POSTGRES_USER:-clinic}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpassword}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-clinic} -d ${POSTGRES_DB:-clinic_payroll}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    logging: *default-logging
+
+  web:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # DML-only role for day-to-day app traffic -- not the Postgres
+      # superuser (POSTGRES_USER below). Run migrations with that superuser
+      # DSN explicitly instead, e.g.:
+      #   docker compose -f docker-compose.prod.yml exec \
+      #     -e DATABASE_URL=postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB} \
+      #     web alembic upgrade head
+      DATABASE_URL: postgresql+psycopg://${APP_DB_USER:-clinic_app}:${APP_DB_PASSWORD}@db:5432/${POSTGRES_DB:-clinic_payroll}
+      SESSION_SECRET: ${SESSION_SECRET:-dev-only-change-me}
+    # --proxy-headers: trust Caddy's X-Forwarded-For/-Proto so request.client.host
+    # and request.url.scheme reflect the real visitor, not the Caddy container --
+    # needed for accurate rate-limiting/logging and the secure-cookie flag. Safe
+    # to trust from "*" here because uvicorn isn't reachable except via Caddy
+    # (no host port published on this service).
+    command: uvicorn webapp.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips="*"
+    logging: *default-logging
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - web
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - /var/log/caddy:/var/log/caddy
+    logging: *default-logging
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

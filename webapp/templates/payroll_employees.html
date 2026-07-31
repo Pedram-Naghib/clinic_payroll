@@ -1,0 +1,316 @@
+{% extends "base.html" %}
+{% from "_help.html" import help_box %}
+{% block content %}
+
+{% call help_box() %}
+<h6>این صفحه چه کاری انجام می‌دهد؟</h6>
+<p>لیست کامل پرسنل کلینیک با اطلاعاتی که مستقیماً روی محاسبهٔ حقوق اثر می‌گذارند: نوع استخدام، حقوق ثابت یا نرخ ساعتی، وضعیت تأهل و تعداد فرزندان (برای مزایا)، و نقش‌های شغلی.</p>
+<h6>افزودن یا ویرایش پرسنل</h6>
+<ol>
+  <li>روی «افزودن پرسنل» (یا آیکون مداد کنار هر ردیف برای ویرایش) کلیک کنید.</li>
+  <li><b>نوع استخدام</b> را مشخص کنید: «بیمه‌شده» یعنی حقوق پایه از روی حقوق ثابت ماهانه محاسبه می‌شود؛ «غیر بیمه‌شده» یعنی بر اساس نرخ ساعتی.</li>
+  <li><b>شماره ثبت دستگاه حضور و غیاب</b> باید دقیقاً همان شماره‌ای باشد که در فایل خروجی دستگاه ثبت حضور (EnNo) برای این فرد ثبت شده — در غیر این صورت تردد او به نامش وصل نمی‌شود.</li>
+  <li>«معاف از پیگیری شیفت» را فقط برای کسانی بزنید که اصلاً با دستگاه ساعت نمی‌زنند (مثلاً مدیریت با حقوق ثابت) — حقوق این افراد ثابت است و به ساعت کارکرد وابسته نیست.</li>
+  <li>نقش‌های شغلی (مثل «بهیار»، «پذیرش») را از لیست موجود انتخاب کنید یا نقش جدید تایپ کنید.</li>
+</ol>
+<h6>غیرفعال‌سازی</h6>
+<p>دکمهٔ <i class="bi bi-person-dash"></i> کنار هر پرسنل، او را «غیرفعال» می‌کند — یعنی از این لیست و از محاسبات جدید حقوق پنهان می‌شود، اما سابقهٔ حقوقی و فیش‌های قبلی او دست‌نخورده باقی می‌ماند (حذف واقعی نیست). برای دیدن دوبارهٔ افراد غیرفعال، کلید «نمایش کارکنان غیرفعال» بالای صفحه را بزنید؛ کنار نامشان دکمهٔ بازگردانی ظاهر می‌شود.</p>
+<div class="cp-help-note">این صفحه فقط برای «دسترسی کامل» (Owner) قابل مشاهده است.</div>
+{% endcall %}
+
+<div class="cp-card p-3 mb-3">
+  <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+    <div class="text-muted" style="font-size:.85rem; max-width:640px;">
+      لیست کامل پرسنل کلینیک — شامل نوع استخدام، حقوق ثابت یا نرخ ساعتی، وضعیت تاهل و فرزندان (برای محاسبه مزایا)، و نقش‌های شغلی. غیرفعال‌سازی یک پرسنل او را از این لیست پنهان می‌کند بدون حذف سابقه حقوقی‌اش.
+    </div>
+    <div class="form-check form-switch">
+      <input class="form-check-input" type="checkbox" id="cpShowInactive" onchange="cpApplyFilters()">
+      <label class="form-check-label" for="cpShowInactive" style="font-size:.85rem;">نمایش کارکنان غیرفعال</label>
+    </div>
+  </div>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div class="d-flex gap-2 flex-wrap">
+    <input type="text" class="form-control form-control-sm" id="cpSearchInput" style="width:200px" placeholder="جستجوی نام پرسنل..." oninput="cpApplyFilters()">
+    <select class="form-select form-select-sm" id="cpFilterType" style="width:150px" onchange="cpApplyFilters()">
+      <option value="">همه انواع استخدام</option>
+      <option value="insured">بیمه‌شده</option>
+      <option value="non_insured">غیر بیمه‌شده</option>
+    </select>
+    <select class="form-select form-select-sm" id="cpFilterMarried" style="width:120px" onchange="cpApplyFilters()">
+      <option value="">تأهل: همه</option>
+      <option value="1">متأهل</option>
+      <option value="0">مجرد</option>
+    </select>
+    <select class="form-select form-select-sm" id="cpFilterChildren" style="width:130px" onchange="cpApplyFilters()">
+      <option value="">فرزند: همه</option>
+      <option value="1">دارای فرزند</option>
+      <option value="0">بدون فرزند</option>
+    </select>
+    <select class="form-select form-select-sm" id="cpFilterRole" style="width:150px" onchange="cpApplyFilters()">
+      <option value="">همه نقش‌ها</option>
+      {% for r in all_roles %}<option value="{{ r }}">{{ r }}</option>{% endfor %}
+    </select>
+  </div>
+  {% if role == 'owner' %}
+  <button class="btn btn-primary btn-sm" onclick="cpOpenAddModal()"><i class="bi bi-plus-lg"></i> افزودن پرسنل</button>
+  {% endif %}
+</div>
+
+<div class="cp-card">
+  <div class="table-responsive">
+    <table class="table cp-table mb-0" id="cpEmployeeTable">
+      <thead><tr>
+        <th>نام و نام خانوادگی</th>
+        <th>نوع استخدام</th>
+        <th>شماره دستگاه</th>
+        <th>معاف از شیفت</th>
+        <th class="cp-sortable" onclick="cpSortBy('fixed_salary')">حقوق ثابت <i class="bi cp-sort-icon" data-sort-key="fixed_salary"></i></th>
+        <th class="cp-sortable" onclick="cpSortBy('hourly_rate')">نرخ ساعتی <i class="bi cp-sort-icon" data-sort-key="hourly_rate"></i></th>
+        <th>متأهل</th>
+        <th class="cp-sortable" onclick="cpSortBy('children')">فرزندان <i class="bi cp-sort-icon" data-sort-key="children"></i></th>
+        <th>نقش‌ها</th>
+        <th></th>
+      </tr></thead>
+      <tbody>
+        {% for e in employees %}
+        <tr id="cp-row-{{ e.id }}" class="{{ 'cp-row-inactive d-none' if not e.active else '' }}" data-emp='{{ e | tojson }}'>
+          <td class="fw-semibold cp-emp-name">{{ e.name }}</td>
+          <td>{{ 'بیمه‌شده' if e.type == 'insured' else 'غیر بیمه‌شده' }}</td>
+          <td dir="ltr" class="text-end">{{ e.device or '—' }}</td>
+          <td>{{ 'بله' if e.exempt else 'خیر' }}</td>
+          <td>{{ '{:,}'.format(e.fixed_salary) if e.fixed_salary else '—' }}</td>
+          <td>{{ '{:,}'.format(e.hourly_rate) if e.hourly_rate else '—' }}</td>
+          <td>{{ 'بله' if e.married else 'خیر' }}</td>
+          <td>{{ e.children }}</td>
+          <td>{{ e.roles | join('، ') }}</td>
+          <td class="text-end text-nowrap">
+            <a href="/payroll/payslip/{{ e.id }}" class="btn btn-sm btn-light border"><i class="bi bi-receipt"></i></a>
+            {% if role == 'owner' %}
+            <button class="btn btn-sm btn-light border" onclick="cpOpenEditModal({{ e.id }})"><i class="bi bi-pencil"></i></button>
+            <form action="/payroll/employees/{{ e.id }}/toggle-active" method="post" class="d-inline">
+              <button type="submit" class="btn btn-sm btn-light border" title="{{ 'غیرفعال‌سازی' if e.active else 'بازگردانی' }}">
+                {% if e.active %}<i class="bi bi-person-dash"></i>{% else %}<i class="bi bi-arrow-counterclockwise"></i>{% endif %}
+              </button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if role == 'owner' %}
+<div class="modal fade" id="employeeModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="cpEmployeeModalTitle">افزودن پرسنل</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form class="row g-3" id="cpEmployeeForm" method="post">
+          <div class="col-md-6">
+            <label class="form-label" style="font-size:.82rem;">نام و نام خانوادگی</label>
+            <input type="text" class="form-control" name="full_name" id="cpFldName" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" style="font-size:.82rem;">نوع استخدام</label>
+            <select class="form-select" name="employment_type" id="cpFldType">
+              <option value="insured">بیمه‌شده</option>
+              <option value="non_insured">غیر بیمه‌شده</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" style="font-size:.82rem;">شماره ثبت دستگاه حضور و غیاب</label>
+            <input type="text" class="form-control" name="device_enroll_no" id="cpFldDevice" placeholder="EnNo دستگاه">
+          </div>
+          <div class="col-md-6 d-flex align-items-end">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="is_exempt_from_shifts" value="1" id="cpFldExempt">
+              <label class="form-check-label" style="font-size:.85rem;" for="cpFldExempt">معاف از پیگیری شیفت</label>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" style="font-size:.82rem;">حقوق ثابت ماهانه (ریال)</label>
+            <input type="text" class="form-control" name="fixed_monthly_salary" id="cpFldFixedSalary" placeholder="برای غیر بیمه‌شده: مزایای ثابت">
+          </div>
+          <div class="col-md-6" id="cpFldHourlyRateWrap">
+            <label class="form-label" style="font-size:.82rem;">نرخ ساعتی (ریال)</label>
+            <input type="text" class="form-control" name="base_hourly_rate" id="cpFldHourlyRate">
+          </div>
+          <div class="col-md-3 d-flex align-items-end">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="is_married" value="1" id="cpFldMarried">
+              <label class="form-check-label" style="font-size:.85rem;" for="cpFldMarried">متأهل</label>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label" style="font-size:.82rem;">تعداد فرزندان</label>
+            <input type="number" min="0" max="20" class="form-control" name="number_of_children" id="cpFldChildren" value="0">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label" style="font-size:.82rem;">حق سنوات (ریال)</label>
+            <input type="text" class="form-control" name="seniority_allowance" id="cpFldSeniority" value="0">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label" style="font-size:.82rem;">موجودی مرخصی (روز)</label>
+            <input type="text" class="form-control" name="vacation_balance_days" id="cpFldVacation" value="0">
+          </div>
+          <div class="col-12">
+            <label class="form-label" style="font-size:.82rem;">نقش‌های شغلی</label>
+            <div class="border rounded-3 p-2" id="cpFldRoles">
+              {% for r in all_roles %}
+              <div class="form-check form-check-inline">
+                <input class="form-check-input cp-role-check" type="checkbox" name="roles" value="{{ r }}" id="cpRole{{ loop.index }}">
+                <label class="form-check-label" style="font-size:.85rem;" for="cpRole{{ loop.index }}">{{ r }}</label>
+              </div>
+              {% endfor %}
+            </div>
+            <div class="input-group input-group-sm mt-2" style="max-width:320px;">
+              <input type="text" class="form-control" id="cpNewRoleInput" placeholder="افزودن نقش جدید...">
+              <button class="btn btn-outline-secondary" type="button" onclick="cpAddRole()">افزودن</button>
+            </div>
+          </div>
+          <div class="col-12">
+            <label class="form-label" style="font-size:.82rem;">یادداشت</label>
+            <textarea class="form-control" name="notes" id="cpFldNotes" rows="2"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light border" data-bs-dismiss="modal">انصراف</button>
+        <button type="submit" form="cpEmployeeForm" class="btn btn-primary">ذخیره</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+function cpApplyFilters(){
+  const search = document.getElementById('cpSearchInput').value.trim().toLowerCase();
+  const type = document.getElementById('cpFilterType').value;
+  const married = document.getElementById('cpFilterMarried').value;
+  const hasChildren = document.getElementById('cpFilterChildren').value;
+  const role = document.getElementById('cpFilterRole').value;
+  const showInactive = document.getElementById('cpShowInactive').checked;
+
+  document.querySelectorAll('#cpEmployeeTable tbody tr[data-emp]').forEach(row => {
+    const e = JSON.parse(row.dataset.emp);
+    let visible = true;
+    if (!e.active && !showInactive) visible = false;
+    if (search && !e.name.toLowerCase().includes(search)) visible = false;
+    if (type && e.type !== type) visible = false;
+    if (married && String(e.married ? 1 : 0) !== married) visible = false;
+    if (hasChildren && String(e.children > 0 ? 1 : 0) !== hasChildren) visible = false;
+    if (role && !e.roles.includes(role)) visible = false;
+    row.classList.toggle('d-none', !visible);
+  });
+}
+
+// Numeric-column sort: first click ascending (smallest first, standard
+// spreadsheet/table convention), second click on the same column descending.
+let cpSortState = { key: null, dir: 1 };
+
+function cpSortBy(key){
+  cpSortState.dir = (cpSortState.key === key) ? -cpSortState.dir : 1;
+  cpSortState.key = key;
+
+  const tbody = document.querySelector('#cpEmployeeTable tbody');
+  const rows = Array.from(tbody.querySelectorAll('tr[data-emp]'));
+  rows.sort((a, b) => {
+    const av = JSON.parse(a.dataset.emp)[key] || 0;
+    const bv = JSON.parse(b.dataset.emp)[key] || 0;
+    return (av - bv) * cpSortState.dir;
+  });
+  rows.forEach(r => tbody.appendChild(r));
+
+  document.querySelectorAll('.cp-sort-icon').forEach(icon => {
+    if (icon.dataset.sortKey !== key) { icon.className = 'bi cp-sort-icon'; return; }
+    icon.className = 'bi cp-sort-icon ' + (cpSortState.dir === 1 ? 'bi-sort-up' : 'bi-sort-down');
+  });
+}
+
+let cpModal;
+document.addEventListener('DOMContentLoaded', () => {
+  const el = document.getElementById('employeeModal');
+  if (el) cpModal = new bootstrap.Modal(el);
+  const typeSelect = document.getElementById('cpFldType');
+  if (typeSelect) {
+    typeSelect.addEventListener('change', () => {
+      // Hourly rate is auto-derived (monthly salary ÷ base hours) for
+      // insured staff -- never manually entered, so clear any leftover
+      // value when switching to insured so the derivation always applies.
+      if (typeSelect.value === 'insured') document.getElementById('cpFldHourlyRate').value = '';
+      cpUpdateHourlyRateVisibility();
+    });
+  }
+});
+
+function cpUpdateHourlyRateVisibility(){
+  const isInsured = document.getElementById('cpFldType').value === 'insured';
+  document.getElementById('cpFldHourlyRateWrap').classList.toggle('d-none', isInsured);
+}
+
+function cpResetForm(){
+  const form = document.getElementById('cpEmployeeForm');
+  form.action = '/payroll/employees/new';
+  ['cpFldName','cpFldDevice','cpFldFixedSalary','cpFldHourlyRate','cpFldNotes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('cpFldType').value = 'insured';
+  cpUpdateHourlyRateVisibility();
+  document.getElementById('cpFldExempt').checked = false;
+  document.getElementById('cpFldMarried').checked = false;
+  document.getElementById('cpFldChildren').value = 0;
+  document.getElementById('cpFldSeniority').value = 0;
+  document.getElementById('cpFldVacation').value = 0;
+  document.querySelectorAll('.cp-role-check').forEach(c => c.checked = false);
+}
+
+function cpOpenAddModal(){
+  cpResetForm();
+  document.getElementById('cpEmployeeModalTitle').textContent = 'افزودن پرسنل';
+  cpModal.show();
+}
+
+function cpOpenEditModal(id){
+  const row = document.getElementById('cp-row-' + id);
+  const e = JSON.parse(row.dataset.emp);
+  cpResetForm();
+  document.getElementById('cpEmployeeForm').action = '/payroll/employees/' + id + '/edit';
+  document.getElementById('cpEmployeeModalTitle').textContent = 'ویرایش — ' + e.name;
+  document.getElementById('cpFldName').value = e.name;
+  document.getElementById('cpFldType').value = e.type;
+  document.getElementById('cpFldDevice').value = e.device || '';
+  document.getElementById('cpFldExempt').checked = e.exempt;
+  document.getElementById('cpFldFixedSalary').value = e.fixed_salary || '';
+  document.getElementById('cpFldHourlyRate').value = e.hourly_rate || '';
+  cpUpdateHourlyRateVisibility();
+  document.getElementById('cpFldMarried').checked = e.married;
+  document.getElementById('cpFldChildren').value = e.children;
+  document.getElementById('cpFldSeniority').value = e.seniority;
+  document.getElementById('cpFldVacation').value = e.vacation_balance;
+  document.getElementById('cpFldNotes').value = e.notes || '';
+  document.querySelectorAll('.cp-role-check').forEach(c => { c.checked = e.roles.includes(c.value); });
+  cpModal.show();
+}
+
+function cpAddRole(){
+  const input = document.getElementById('cpNewRoleInput');
+  const name = input.value.trim();
+  if (!name) return;
+  const wrap = document.getElementById('cpFldRoles');
+  const id = 'cpRoleNew' + Date.now();
+  const div = document.createElement('div');
+  div.className = 'form-check form-check-inline';
+  div.innerHTML = `<input class="form-check-input cp-role-check" type="checkbox" name="roles" value="${name}" id="${id}" checked>
+    <label class="form-check-label" style="font-size:.85rem;" for="${id}">${name}</label>`;
+  wrap.appendChild(div);
+  input.value = '';
+}
+</script>
+
+{% endblock %}

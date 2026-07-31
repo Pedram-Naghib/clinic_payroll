@@ -144,7 +144,7 @@ CONFIG_LABELS = {
     "food_allowance_per_hour": "حق خواربار (ساعتی، بیمه نشده)",
     "medical_leave_paid_days_cap": "سقف مرخصی استعلاجی پرداختی (روز در ماه)",
     "piercing_commission_pct": "درصد کمیسیون پیرسینگ",
-    "fast_blood_test_commission_pct": "درصد کمیسیون آزمایش فوری خون",
+    "fast_blood_test_commission_pct": "درصد کمیسیون فست خون",
 }
 
 CONFIG_DESCRIPTIONS = {
@@ -160,7 +160,7 @@ CONFIG_DESCRIPTIONS = {
     "food_allowance_per_hour": "در ساعات کارکرد کارکنان بیمه نشده ضرب می‌شود — یک نرخ سراسری",
     "medical_leave_paid_days_cap": "سقف روزهای مرخصی استعلاجی که توسط درمانگاه پرداخت می‌شود",
     "piercing_commission_pct": "درصد کمیسیون مستقیم خدمات پیرسینگ",
-    "fast_blood_test_commission_pct": "درصد کمیسیون مستقیم خدمات آزمایش فوری خون",
+    "fast_blood_test_commission_pct": "درصد کمیسیون مستقیم خدمات فست خون",
 }
 
 CATEGORY_LABELS = {
@@ -285,11 +285,11 @@ TAB_COMMISSIONS = "کمیسیون‌های مستقیم"
 
 COMMISSIONS_INFO = (
     "ثبت کمیسیون‌های مستقیمی که بلافاصله از درآمد بیمار به کارمند پرداخت می‌شود "
-    "(پیرسینگ، آزمایش فوری خون). این مبالغ کاملاً جدا از حقوق ماهیانه محاسبه و گزارش می‌شوند."
+    "(پیرسینگ، فست خون). این مبالغ کاملاً جدا از حقوق ماهیانه محاسبه و گزارش می‌شوند."
 )
 
 SERVICE_TYPE_PIERCING = "پیرسینگ"
-SERVICE_TYPE_FAST_BLOOD_TEST = "آزمایش فوری خون"
+SERVICE_TYPE_FAST_BLOOD_TEST = "فست خون"
 SERVICE_TYPE_DISPLAY = {
     "piercing": SERVICE_TYPE_PIERCING,
     "fast_blood_test": SERVICE_TYPE_FAST_BLOOD_TEST,
@@ -297,7 +297,7 @@ SERVICE_TYPE_DISPLAY = {
 
 LBL_EMPLOYEE = "کارمند:"
 LBL_SERVICE_TYPE = "نوع خدمت:"
-LBL_FEE_TOMAN = "مبلغ دریافتی (تومان):"
+LBL_FEE_TOMAN = "مبلغ دریافتی (ریال):"
 LBL_SERVICE_DATE = "تاریخ (شمسی):"
 LBL_SERVICE_DATE_HINT = "مثال: 1405/03/15"
 LBL_COMMISSION_NOTES = "یادداشت (اختیاری):"

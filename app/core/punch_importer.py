@@ -45,20 +45,27 @@ def import_punches_file(conn: sqlite3.Connection, file_path: str | Path) -> dict
         if emp_id is None:
             unmatched[p.device_enroll_no] = unmatched.get(p.device_enroll_no, 0) + 1
 
-        try:
-            conn.execute(
-                """INSERT INTO raw_punches
-                   (device_enroll_no, employee_id, punch_datetime, raw_mode,
-                    raw_inout_flag, source_file)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
-                (
-                    p.device_enroll_no, emp_id,
-                    p.punch_datetime.strftime("%Y-%m-%d %H:%M:%S"),
-                    p.mode, p.raw_inout_flag, file_path.name,
-                ),
-            )
+        # ON CONFLICT DO NOTHING (not try/except IntegrityError) -- under
+        # Postgres a failed statement poisons the rest of the transaction
+        # until rolled back, which would silently kill every subsequent
+        # insert in this loop. rowcount tells us whether the UNIQUE
+        # constraint on (device_enroll_no, punch_datetime, raw_mode) ate a
+        # duplicate, without ever raising.
+        cur = conn.execute(
+            """INSERT INTO raw_punches
+               (device_enroll_no, employee_id, punch_datetime, raw_mode,
+                raw_inout_flag, source_file)
+               VALUES (?, ?, ?, ?, ?, ?)
+               ON CONFLICT DO NOTHING""",
+            (
+                p.device_enroll_no, emp_id,
+                p.punch_datetime.strftime("%Y-%m-%d %H:%M:%S"),
+                p.mode, p.raw_inout_flag, file_path.name,
+            ),
+        )
+        if cur.rowcount:
             inserted += 1
-        except sqlite3.IntegrityError:
+        else:
             duplicates += 1
 
     conn.commit()

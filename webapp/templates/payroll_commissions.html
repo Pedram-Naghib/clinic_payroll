@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% from "_help.html" import help_box %}
+{% block content %}
+
+{% call help_box() %}
+<h6>این صفحه چه کاری انجام می‌دهد؟</h6>
+<p>ثبت کمیسیون‌های مستقیمی که فوراً از درآمد یک خدمت خاص (پیرسینگ، فست خون) به کارمند مربوطه پرداخت می‌شود. این مبلغ کاملاً جدا از حقوق ماهانه است و در «اجرای حقوق» دخالتی ندارد.</p>
+<h6>ثبت کمیسیون جدید</h6>
+<ol>
+  <li>کارمند (فقط کسانی که نقش شغلی «بهیار» دارند در لیست پیش‌فرض ظاهر می‌شوند)، نوع خدمت، و مبلغ <b>دریافتی از بیمار به ریال</b> را وارد کنید.</li>
+  <li>سیستم درصد کمیسیون را از «تنظیمات سیستم» می‌خواند (قابل تغییر آنجا) و مبلغ نهایی کمیسیون را خودش محاسبه می‌کند — نیازی به محاسبهٔ دستی نیست.</li>
+  <li>تاریخ خدمت را به فرم شمسی <code dir="ltr">1405/03/15</code> وارد کنید.</li>
+</ol>
+{% endcall %}
+
+<div class="cp-card p-3 mb-3">
+  <div class="text-muted" style="font-size:.85rem;">
+    ثبت کمیسیون‌های مستقیمی که بلافاصله از درآمد بیمار به کارمند پرداخت می‌شود (پیرسینگ، فست خون).
+    این مبالغ کاملاً جدا از حقوق ماهیانه محاسبه و گزارش می‌شوند.
+  </div>
+</div>
+
+{% if saved %}<div class="alert alert-success py-2 mb-3" style="font-size:.85rem;">کمیسیون با موفقیت ثبت شد.</div>{% endif %}
+{% if error %}<div class="alert alert-danger py-2 mb-3" style="font-size:.85rem;">{{ error }}</div>{% endif %}
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-5">
+    <div class="cp-card p-3 h-100">
+      <div class="cp-section-title">ثبت کمیسیون جدید</div>
+      {% if not eligible_employees %}
+      <div class="text-muted" style="font-size:.85rem;">هیچ کارمند فعالی با نقش «بهیار» یافت نشد. نقش را از صفحهٔ «پرسنل» تنظیم کنید.</div>
+      {% else %}
+      <form action="/payroll/commissions/new" method="post" class="row g-2" id="cpCommForm">
+        <div class="col-12">
+          <label class="form-label" style="font-size:.8rem;">کارمند</label>
+          <select name="employee_id" class="form-select form-select-sm" required>
+            {% for e in eligible_employees %}<option value="{{ e.id }}">{{ e.full_name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-12">
+          <label class="form-label" style="font-size:.8rem;">نوع خدمت</label>
+          <select name="service_type" id="cpServiceType" class="form-select form-select-sm">
+            {% for code, label in service_types %}<option value="{{ code }}">{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-12">
+          <label class="form-label" style="font-size:.8rem;">مبلغ دریافتی (ریال)</label>
+          <input type="text" name="fee_rial" id="cpFeeRial" class="form-control form-control-sm" placeholder="0" required>
+        </div>
+        <div class="col-12">
+          <label class="form-label" style="font-size:.8rem;">تاریخ (شمسی)</label>
+          <input type="text" name="service_date" class="form-control form-control-sm" value="{{ today_jalali_str }}" placeholder="1405/03/15" required>
+        </div>
+        <div class="col-12">
+          <label class="form-label" style="font-size:.8rem;">یادداشت (اختیاری)</label>
+          <input type="text" name="notes" class="form-control form-control-sm">
+        </div>
+        <div class="col-12">
+          <div class="text-muted fw-bold mb-2" id="cpCommPreview" style="font-size:.85rem;">کمیسیون: —</div>
+          <button type="submit" class="btn btn-primary btn-sm">ثبت کمیسیون</button>
+        </div>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="cp-card p-3 h-100">
+      <div class="cp-section-title">تاریخچه</div>
+      <form action="/payroll/commissions" method="get" class="mb-2">
+        <select name="employee_id" class="form-select form-select-sm" style="max-width:220px;" onchange="this.form.submit()">
+          <option value="">همهٔ کارکنان</option>
+          {% for e in all_employees %}<option value="{{ e.id }}" {{ 'selected' if e.id == sel_employee_id }}>{{ e.full_name }}</option>{% endfor %}
+        </select>
+      </form>
+      <div class="table-responsive">
+        <table class="table cp-table mb-0">
+          <thead><tr><th>کارمند</th><th>نوع خدمت</th><th>مبلغ دریافتی</th><th>درصد</th><th>مبلغ کمیسیون</th><th>تاریخ</th><th></th></tr></thead>
+          <tbody>
+            {% for h in history %}
+            <tr>
+              <td class="fw-semibold">{{ h.employee_name }}</td>
+              <td>{{ 'پیرسینگ' if h.service_type == 'piercing' else 'فست خون' }}</td>
+              <td>{{ '{:,}'.format(h.fee_received) }}</td>
+              <td>{{ "%g"|format(h.commission_rate) }}٪</td>
+              <td class="fw-semibold">{{ '{:,}'.format(h.commission_amount) }}</td>
+              <td>{{ h.service_date }}</td>
+              <td class="text-end">
+                <form action="/payroll/commissions/{{ h.id }}/delete" method="post" onsubmit="return confirm('این ردیف کمیسیون برای همیشه حذف می‌شود. ادامه می‌دهید؟');">
+                  {% if sel_employee_id %}<input type="hidden" name="employee_id" value="{{ sel_employee_id }}">{% endif %}
+                  <button type="submit" class="btn btn-sm btn-light border"><i class="bi bi-trash"></i></button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const cpRates = {{ rates | tojson }};
+  function cpUpdatePreview(){
+    const type = document.getElementById('cpServiceType').value;
+    const feeRial = parseInt((document.getElementById('cpFeeRial').value || '').replace(/,/g, ''), 10);
+    const preview = document.getElementById('cpCommPreview');
+    if (!type || !feeRial || feeRial <= 0 || !(type in cpRates)) { preview.textContent = 'کمیسیون: —'; return; }
+    const rate = cpRates[type];
+    const amount = Math.round(feeRial * rate / 100);
+    preview.textContent = `کمیسیون (${rate}٪): ${amount.toLocaleString('en-US')} ریال`;
+  }
+  const feeInput = document.getElementById('cpFeeRial');
+  const typeSelect = document.getElementById('cpServiceType');
+  if (feeInput) feeInput.addEventListener('input', cpUpdatePreview);
+  if (typeSelect) typeSelect.addEventListener('change', cpUpdatePreview);
+</script>
+
+{% endblock %}

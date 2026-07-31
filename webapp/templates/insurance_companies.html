@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% from "_help.html" import help_box %}
+{% block content %}
+
+{% call help_box() %}
+<p>«پایان قرارداد» فقط شرکت را از لیست فعال خارج می‌کند — صورت‌حساب و پرداخت‌های قبلی‌اش می‌مانند و با همان دکمه دوباره فعال می‌شود.</p>
+{% endcall %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div class="text-muted" style="font-size:.85rem;">
+    پایان قرارداد یک شرکت بیمه، صورت‌حساب‌ها و پرداخت‌های قبلی آن را حذف نمی‌کند — فقط از لیست شرکت‌های فعال کنار می‌رود.
+  </div>
+  <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#cpNewCompanyForm">
+    <i class="bi bi-plus-lg"></i> افزودن شرکت بیمه
+  </button>
+</div>
+
+<div class="collapse mb-3" id="cpNewCompanyForm">
+  <div class="cp-card p-3">
+    <div class="cp-section-title">قرارداد جدید</div>
+    <form class="row g-3" action="/insurance/companies/new" method="post">
+      <div class="col-md-4">
+        <label class="form-label" style="font-size:.82rem;">نام شرکت بیمه</label>
+        <input type="text" name="name" class="form-control" placeholder="مثلا: بیمه آسیا" required>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" style="font-size:.82rem;">نام رابط قرارداد</label>
+        <input type="text" name="contact_person" class="form-control" placeholder="نام و نام خانوادگی">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" style="font-size:.82rem;">شماره تماس</label>
+        <input type="text" name="phone" class="form-control" placeholder="۰۹۱۲xxxxxxx">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" style="font-size:.82rem;">تاریخ شروع قرارداد (شمسی)</label>
+        <input type="text" name="contract_start_date" class="form-control" placeholder="1404/01/01">
+      </div>
+      <div class="col-md-8">
+        <label class="form-label" style="font-size:.82rem;">توضیحات (اختیاری)</label>
+        <input type="text" name="notes" class="form-control" placeholder="نوع قرارداد، درصد تعهد و غیره">
+      </div>
+      <div class="col-12">
+        <button class="btn btn-primary btn-sm" type="submit">ثبت شرکت بیمه</button>
+        <button class="btn btn-light border btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#cpNewCompanyForm">انصراف</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="cp-card">
+  <div class="table-responsive">
+    <table class="table cp-table mb-0">
+      <thead><tr>
+        <th>نام شرکت بیمه</th>
+        <th>رابط قرارداد</th>
+        <th>شماره تماس</th>
+        <th>شروع قرارداد</th>
+        <th>صورت‌حساب‌های باز</th>
+        <th>وضعیت</th>
+        <th></th>
+      </tr></thead>
+      <tbody>
+        {% for c in companies %}
+        <tr>
+          <td class="fw-semibold">{{ c.name }}</td>
+          <td>{{ c.contact }}</td>
+          <td>{{ c.phone }}</td>
+          <td>{{ c.since }}</td>
+          <td>{{ c.open_invoices }}</td>
+          <td><span class="cp-status {{ 'ok' if c.active else 'muted' }}">{{ 'فعال' if c.active else 'قرارداد پایان‌یافته' }}</span></td>
+          <td class="text-end text-nowrap">
+            <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#cpEditRow{{ c.id }}">ویرایش</button>
+            <form action="/insurance/companies/{{ c.id }}/toggle-active" method="post" class="d-inline">
+              {% if c.active %}
+              <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('پایان قرارداد {{ c.name }}. صورت‌حساب‌ها و پرداخت‌های قبلی حذف نمی‌شوند. ادامه می‌دهید؟');">پایان قرارداد</button>
+              {% else %}
+              <button type="submit" class="btn btn-sm btn-outline-secondary">فعال‌سازی مجدد</button>
+              {% endif %}
+            </form>
+          </td>
+        </tr>
+        <tr class="collapse" id="cpEditRow{{ c.id }}">
+          <td colspan="7">
+            <div class="cp-card p-3 my-2">
+              <div class="cp-section-title">ویرایش {{ c.name }}</div>
+              <form class="row g-3" action="/insurance/companies/{{ c.id }}/edit" method="post">
+                <div class="col-md-4">
+                  <label class="form-label" style="font-size:.82rem;">نام شرکت بیمه</label>
+                  <input type="text" name="name" class="form-control" value="{{ c.name }}" required>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" style="font-size:.82rem;">نام رابط قرارداد</label>
+                  <input type="text" name="contact_person" class="form-control" value="{{ c.raw_contact }}">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" style="font-size:.82rem;">شماره تماس</label>
+                  <input type="text" name="phone" class="form-control" value="{{ c.raw_phone }}">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" style="font-size:.82rem;">تاریخ شروع قرارداد (شمسی)</label>
+                  <input type="text" name="contract_start_date" class="form-control" value="{{ c.raw_since }}" placeholder="1404/01/01">
+                </div>
+                <div class="col-md-8">
+                  <label class="form-label" style="font-size:.82rem;">توضیحات (اختیاری)</label>
+                  <input type="text" name="notes" class="form-control" value="{{ c.notes }}">
+                </div>
+                <div class="col-12">
+                  <button class="btn btn-primary btn-sm" type="submit">ذخیره تغییرات</button>
+                  <button class="btn btn-light border btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#cpEditRow{{ c.id }}">انصراف</button>
+                </div>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

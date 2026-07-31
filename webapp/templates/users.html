@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% from "_help.html" import help_box %}
+{% block content %}
+
+{% call help_box() %}
+<h6>این صفحه چه کاری انجام می‌دهد؟</h6>
+<p>مدیریت حساب‌های ورود به سامانه (نه پرسنل کلینیک — آن‌ها در صفحهٔ «پرسنل» مدیریت می‌شوند). هر کاربر یک نام‌کاربری/رمزعبور و یک نقش دارد.</p>
+<h6>سه نقش موجود</h6>
+<ul>
+  <li><b>دسترسی کامل (Owner):</b> به همهٔ صفحات حقوق و دستمزد، بیمه و مدیریت کاربران دسترسی کامل دارد.</li>
+  <li><b>حسابدار (Accountant):</b> فقط صفحهٔ «صورت‌حساب‌ها»ی بیمه را می‌بیند و فقط می‌تواند صورت‌حساب جدید ثبت کند — نه مبلغ پرداختی/کسورات بیمه‌ها را می‌بیند، نه به تطبیق پرداخت‌ها، شرکت‌های بیمه یا گزارش‌ها دسترسی دارد، نه به هیچ صفحه‌ای از حقوق و دستمزد.</li>
+  <li><b>مدیر داخلی (Manager):</b> فقط به صفحهٔ «برنامهٔ شیفت» دسترسی دارد — پس از ورود مستقیم به همین صفحه هدایت می‌شود و هیچ صفحهٔ دیگری را نمی‌بیند.</li>
+</ul>
+<h6>عملیات هر کاربر</h6>
+<ul>
+  <li><i class="bi bi-key"></i> <b>بازنشانی رمز عبور:</b> رمز جدید تعیین می‌کند؛ کاربر خودش امکان تغییر رمز از داخل سامانه را ندارد، فقط از همین‌جا توسط مدیر قابل تغییر است.</li>
+  <li>تغییر نقش از منوی کشویی جلوی هر کاربر، بلافاصله ذخیره می‌شود.</li>
+  <li><i class="bi bi-slash-circle"></i> <b>غیرفعال‌سازی:</b> امکان ورود آن کاربر را قطع می‌کند بدون حذف حسابش. <b>نکته:</b> نمی‌توانید حساب خودتان را غیرفعال کنید — این یک محافظت در برابر قفل‌شدن غیرعمدی سامانه است.</li>
+  <li><i class="bi bi-trash"></i> <b>حذف:</b> حساب را کاملاً پاک می‌کند. اگر آن کاربر قبلاً صورت‌حساب، پرداخت یا اجرای حقوقی ثبت کرده باشد، حذف رد می‌شود (چون آن سوابق به این حساب وصل‌اند) — در این حالت به‌جای حذف، غیرفعالش کنید.</li>
+</ul>
+<div class="cp-help-note">این صفحه فقط برای «دسترسی کامل» (Owner) قابل مشاهده است.</div>
+{% endcall %}
+
+<div class="cp-card p-3 mb-3">
+  <div class="text-muted" style="font-size:.85rem;">
+    مدیریت حساب‌های کاربری ورود به سامانه. برای هر کاربر می‌توان نقش را تغییر داد، رمز عبور را بازنشانی کرد یا حساب را غیرفعال/فعال کرد.
+  </div>
+</div>
+
+{% if error %}<div class="alert alert-danger py-2 mb-3" style="font-size:.85rem;">{{ error }}</div>{% endif %}
+
+<div class="d-flex justify-content-end mb-3">
+  <button class="btn btn-primary btn-sm" onclick="cpAddUserModal.show()"><i class="bi bi-plus-lg"></i> افزودن کاربر</button>
+</div>
+
+<div class="cp-card mb-3">
+  <div class="table-responsive">
+    <table class="table cp-table mb-0">
+      <thead><tr>
+        <th>نام کاربری</th><th>نقش</th><th>کارمند مرتبط</th><th>وضعیت</th><th></th>
+      </tr></thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td class="fw-semibold" dir="ltr">{{ u.username }}</td>
+          <td>
+            <form action="/users/{{ u.id }}/role" method="post" class="d-flex align-items-center gap-1">
+              <select name="role" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
+                {% for r in roles %}<option value="{{ r }}" {{ 'selected' if r == u.role }}>{{ role_labels.get(r, r) }}</option>{% endfor %}
+              </select>
+            </form>
+          </td>
+          <td>{{ u.employee_name or '—' }}</td>
+          <td><span class="cp-status {{ 'ok' if u.active else 'muted' }}">{{ 'فعال' if u.active else 'غیرفعال' }}</span></td>
+          <td class="text-end">
+            <button type="button" class="btn btn-sm btn-light border" onclick="cpResetPwUserId.value={{ u.id }}; cpResetPwModal.show();" title="بازنشانی رمز عبور">
+              <i class="bi bi-key"></i>
+            </button>
+            <form action="/users/{{ u.id }}/toggle-active" method="post" class="d-inline"
+                  onsubmit="return confirm('{{ 'غیرفعال کردن' if u.active else 'فعال کردن' }} حساب «{{ u.username }}»؟');">
+              <button type="submit" class="btn btn-sm btn-light border">
+                <i class="bi {{ 'bi-slash-circle' if u.active else 'bi-check-circle' }}"></i>
+              </button>
+            </form>
+            <form action="/users/{{ u.id }}/delete" method="post" class="d-inline"
+                  onsubmit="return confirm('حذف کامل حساب «{{ u.username }}»؟ این کار قابل بازگشت نیست.');">
+              <button type="submit" class="btn btn-sm btn-outline-danger">
+                <i class="bi bi-trash"></i>
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modal fade" id="cpAddUserModalEl" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">افزودن کاربر جدید</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form action="/users/new" method="post">
+        <div class="modal-body row g-3">
+          <div class="col-12">
+            <label class="form-label" style="font-size:.82rem;">نام کاربری</label>
+            <input type="text" name="username" id="cpNewUsername" class="form-control" dir="ltr" autocomplete="off" required>
+          </div>
+          <div class="col-12">
+            <label class="form-label" style="font-size:.82rem;">رمز عبور</label>
+            <input type="password" name="password" class="form-control" dir="ltr" required>
+          </div>
+          <div class="col-12">
+            <label class="form-label" style="font-size:.82rem;">نقش</label>
+            <select name="role" class="form-select">
+              {% for r in roles %}<option value="{{ r }}">{{ role_labels.get(r, r) }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label" style="font-size:.82rem;">کارمند مرتبط (اختیاری)</label>
+            <select name="employee_id" class="form-select" onchange="if(!cpNewUsername.value.trim() && this.value) cpNewUsername.value = this.options[this.selectedIndex].text.trim();">
+              <option value="">— بدون ارتباط —</option>
+              {% for e in employees %}<option value="{{ e.id }}">{{ e.full_name }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light border" data-bs-dismiss="modal">انصراف</button>
+          <button type="submit" class="btn btn-primary">افزودن</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="cpResetPwModalEl" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">بازنشانی رمز عبور</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="cpResetPwForm" action="/users/0/reset-password" method="post">
+        <div class="modal-body">
+          <label class="form-label" style="font-size:.82rem;">رمز عبور جدید</label>
+          <input type="password" name="new_password" class="form-control" dir="ltr" required>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light border" data-bs-dismiss="modal">انصراف</button>
+          <button type="submit" class="btn btn-primary">بازنشانی</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  let cpAddUserModal, cpResetPwModal;
+  const cpResetPwForm = document.getElementById('cpResetPwForm');
+  const cpResetPwUserId = { set value(id) { cpResetPwForm.action = `/users/${id}/reset-password`; } };
+  document.addEventListener('DOMContentLoaded', () => {
+    cpAddUserModal = new bootstrap.Modal(document.getElementById('cpAddUserModalEl'));
+    cpResetPwModal = new bootstrap.Modal(document.getElementById('cpResetPwModalEl'));
+  });
+</script>
+
+{% endblock %}

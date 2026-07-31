@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% from "_help.html" import help_box %}
+{% block content %}
+
+{% call help_box() %}
+<h6>این صفحه چه کاری انجام می‌دهد؟</h6>
+<p>برنامهٔ دستی شیفت‌بندی ماهانهٔ کارکنان — اینکه هر نفر در هر روز صبح (M)، عصر (E)، شب (N) یا حالت دیگری (تعطیل، مرخصی و...) کار می‌کند — و پیشنهاد خودکار برای پوشش غیبت‌ها.</p>
+<h6>جدول برنامه</h6>
+<ol>
+  <li>سال و ماه شمسی را از بالای صفحه انتخاب کنید.</li>
+  <li>در جدول، جلوی هر کارمند و روز، کد شیفت را تایپ کنید: <code>M</code> صبح، <code>E</code> عصر، <code>N</code> شب. کدهای دلخواه دیگر هم قابل استفاده‌اند (مثلاً <code>H</code> برای تعطیل، <code>V</code> برای مرخصی) — این‌ها فقط جنبهٔ یادداشتی دارند و در پیشنهاد جایگزینی وارد نمی‌شوند.</li>
+  <li>«ذخیرهٔ برنامه» کل جدول را یک‌جا ذخیره می‌کند؛ خانهٔ خالی یعنی آن روز برای آن نفر برنامه‌ای ثبت نشده.</li>
+</ol>
+<h6>تعریف بازهٔ زمانی شیفت‌ها</h6>
+<p>ساعت شروع/پایان هر کد (M/E/N) از اینجا قابل تغییر است. این ساعت‌ها هم در پیشنهاد جایگزینی و هم در تشخیص «شیفت شب» برای محاسبهٔ اضافه‌پرداخت تعطیل استفاده می‌شوند (طبق سیاست کلینیک، شیفت شب مشمول اضافه‌پرداخت تعطیل نیست).</p>
+<h6>پیشنهادهای جایگزینی</h6>
+<p>پس از اینکه حضور و غیاب یک ماه از صفحهٔ «تردد و حضور» محاسبه شد، دکمهٔ «تولید پیشنهاد جایگزینی» را بزنید. سیستم برای هر کسی که طبق برنامه باید شیفتی را کار می‌کرد ولی تردد او در آن روز ثبت نشده (غایب)، به دنبال همکار دیگری می‌گردد که همان روز، در همان بازهٔ زمانی شیفت، تردد واقعی داشته و برای آن شیفت برنامه‌ریزی نشده بود — و او را به‌عنوان «جایگزین احتمالی» پیشنهاد می‌دهد. هر پیشنهاد را می‌توانید تأیید یا رد کنید.</p>
+<div class="cp-help-note">تولید پیشنهاد جایگزینی فقط زمانی نتیجه می‌دهد که برای همان ماه، محاسبهٔ ساعت کارکرد (صفحهٔ «تردد و حضور») قبلاً انجام شده باشد.</div>
+{% endcall %}
+
+<div class="cp-card p-3 mb-3">
+  <div class="text-muted" style="font-size:.85rem;">
+    برنامهٔ دستی شیفت هر کارمند در هر روز (M=صبح، E=عصر، N=شب، یا هر کد دلخواه مثل H برای تعطیل، V برای مرخصی). خانه‌ها را ویرایش و «ذخیرهٔ برنامه» را بزنید.
+    پس از محاسبهٔ حضور و غیاب همان ماه، «تولید پیشنهاد جایگزینی» غیبت‌های پوشش‌داده‌شده توسط همکار دیگر را پیدا می‌کند.
+  </div>
+</div>
+
+{% if saved %}<div class="alert alert-success py-2 mb-3" style="font-size:.85rem;">تغییرات با موفقیت ذخیره شد.</div>{% endif %}
+{% if generated_count is not none %}
+<div class="alert alert-success py-2 mb-3" style="font-size:.85rem;">{{ generated_count }} پیشنهاد جایگزینی جدید ایجاد شد.</div>
+{% endif %}
+
+<form action="/payroll/shifts" method="get" class="d-flex gap-2 align-items-end flex-wrap mb-3">
+  <div>
+    <label class="form-label" style="font-size:.8rem;">سال</label>
+    <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">
+      {% for y in year_range %}<option value="{{ y }}" {{ 'selected' if y == sel_year }}>{{ y }}</option>{% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="form-label" style="font-size:.8rem;">ماه</label>
+    <select name="month" class="form-select form-select-sm" onchange="this.form.submit()">
+      {% for i, name in jalali_months %}<option value="{{ i }}" {{ 'selected' if i == sel_month }}>{{ name }}</option>{% endfor %}
+    </select>
+  </div>
+</form>
+
+<form action="/payroll/shifts/save" method="post">
+  <input type="hidden" name="year" value="{{ sel_year }}">
+  <input type="hidden" name="month" value="{{ sel_month }}">
+  <div class="cp-card mb-2">
+    <div class="table-responsive">
+      <table class="table cp-table mb-0" style="font-size:.8rem;">
+        <thead>
+          <tr>
+            <th style="position:sticky; right:0; background:inherit;">کارمند</th>
+            {% for day_no, _ in days %}<th class="text-center">{{ day_no }}</th>{% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in employees %}
+          <tr>
+            <td class="fw-semibold" style="position:sticky; right:0; background:inherit;">{{ e.full_name }}</td>
+            {% for _, work_date in days %}
+            <td class="p-1">
+              <input type="text" maxlength="4" class="form-control form-control-sm text-center p-1"
+                     style="width:3.2rem;" name="shift__{{ e.id }}__{{ work_date }}"
+                     value="{{ schedule.get(e.id, {}).get(work_date, '') }}">
+            </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <button type="submit" class="btn btn-primary btn-sm mb-4">ذخیرهٔ برنامه</button>
+</form>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-6">
+    <div class="cp-card p-3 h-100">
+      <div class="cp-section-title">تعریف بازهٔ زمانی شیفت‌ها</div>
+      <form action="/payroll/shifts/definitions/save" method="post">
+        <input type="hidden" name="year" value="{{ sel_year }}">
+        <input type="hidden" name="month" value="{{ sel_month }}">
+        <div class="table-responsive">
+        <table class="table cp-table mb-2">
+          <thead><tr><th>کد</th><th>عنوان</th><th>شروع</th><th>پایان</th><th>عبور از نیمه‌شب</th></tr></thead>
+          <tbody>
+            {% for sd in shift_defs %}
+            <tr>
+              <td class="fw-semibold" dir="ltr">{{ sd.code }}</td>
+              <td><input type="text" class="form-control form-control-sm" name="label__{{ sd.code }}" value="{{ sd.label }}"></td>
+              <td><input type="time" class="form-control form-control-sm" name="start__{{ sd.code }}" value="{{ sd.start_time }}"></td>
+              <td><input type="time" class="form-control form-control-sm" name="end__{{ sd.code }}" value="{{ sd.end_time }}"></td>
+              <td class="text-center"><input type="checkbox" name="crosses__{{ sd.code }}" {{ 'checked' if sd.crosses_midnight }}></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        </div>
+        <button type="submit" class="btn btn-outline-primary btn-sm">ذخیرهٔ بازه‌ها</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="cp-card p-3 h-100">
+      <div class="cp-section-title">پیشنهادهای جایگزینی</div>
+      <form action="/payroll/shifts/swaps/generate" method="post" class="mb-2">
+        <input type="hidden" name="year" value="{{ sel_year }}">
+        <input type="hidden" name="month" value="{{ sel_month }}">
+        <button type="submit" class="btn btn-sm btn-outline-secondary">تولید پیشنهاد جایگزینی برای این ماه</button>
+      </form>
+      <div class="table-responsive">
+        <table class="table cp-table mb-0">
+          <thead><tr><th>تاریخ</th><th>غایب</th><th>جایگزین</th><th>شیفت</th><th>وضعیت</th><th></th></tr></thead>
+          <tbody>
+            {% for s in suggestions %}
+            <tr>
+              <td>{{ s.work_date | jalali }}</td>
+              <td>{{ s.absent_name }}</td>
+              <td>{{ s.covering_name }}</td>
+              <td dir="ltr">{{ s.planned_shift_code }}</td>
+              <td>{{ {'pending':'در انتظار','approved':'تأیید شده','rejected':'رد شده'}.get(s.status, s.status) }}</td>
+              <td class="text-end">
+                {% if s.status == 'pending' %}
+                <form action="/payroll/shifts/swaps/{{ s.id }}/decide" method="post" class="d-inline">
+                  <input type="hidden" name="year" value="{{ sel_year }}">
+                  <input type="hidden" name="month" value="{{ sel_month }}">
+                  <input type="hidden" name="decision" value="approve">
+                  <button type="submit" class="btn btn-sm btn-outline-success"><i class="bi bi-check-lg"></i></button>
+                </form>
+                <form action="/payroll/shifts/swaps/{{ s.id }}/decide" method="post" class="d-inline">
+                  <input type="hidden" name="year" value="{{ sel_year }}">
+                  <input type="hidden" name="month" value="{{ sel_month }}">
+                  <input type="hidden" name="decision" value="reject">
+                  <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-x-lg"></i></button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

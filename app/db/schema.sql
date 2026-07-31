@@ -145,9 +145,10 @@ CREATE TABLE IF NOT EXISTS daily_attendance (
     last_out        TEXT,           -- latest OUT punch time that day
     worked_hours     REAL DEFAULT 0,
     planned_shift_code TEXT,
-    status            TEXT,         -- 'ok','missing_punch','absent','swap_suggested','manager_approved', etc.
+    status            TEXT,         -- 'ok','missing_punch','absent','swap_suggested','manager_approved','manual', etc.
     manager_reviewed  INTEGER NOT NULL DEFAULT 0,
     manager_note      TEXT,
+    source            TEXT NOT NULL DEFAULT 'device',  -- 'device' (from punch import) | 'manual' (Owner-entered, protected from recompute)
     UNIQUE(employee_id, work_date)
 );
 

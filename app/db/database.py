@@ -4,6 +4,7 @@ Uses a single local SQLite file — fully offline, no server required.
 """
 
 from __future__ import annotations
+import os
 import sqlite3
 from pathlib import Path
 
@@ -11,7 +12,17 @@ DB_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "clinic.db"
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema.sql"
 
 
-def get_connection(db_path: str | Path = DB_PATH) -> sqlite3.Connection:
+def get_connection(db_path: str | Path = DB_PATH):
+    """Returns a sqlite3.Connection by default (the desktop app's path,
+    unchanged). If DATABASE_URL is set, returns a Postgres connection
+    instead (see app.db.pg_compat) -- used by the web app. The two are
+    interchangeable for every function in app/core/*.py: same .execute()/
+    .commit() shape, same dict-like row["col"] access, same .lastrowid."""
+    database_url = os.environ.get("DATABASE_URL")
+    if database_url:
+        from app.db import pg_compat
+        return pg_compat.get_connection(database_url)
+
     db_path = Path(db_path)
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_path)

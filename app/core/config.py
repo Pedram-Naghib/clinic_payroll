@@ -33,7 +33,7 @@ def get_all_config(conn: sqlite3.Connection) -> list[sqlite3.Row]:
 
 def set_config(conn: sqlite3.Connection, key: str, value) -> None:
     conn.execute(
-        "UPDATE system_config SET value = ?, updated_at = datetime('now') WHERE key = ?",
+        "UPDATE system_config SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?",
         (str(value), key),
     )
     conn.commit()
@@ -47,7 +47,7 @@ def add_config(conn: sqlite3.Connection, key: str, value, value_type: str,
            VALUES (?, ?, ?, ?, ?, ?)
            ON CONFLICT(key) DO UPDATE SET value=excluded.value, value_type=excluded.value_type,
                label=excluded.label, description=excluded.description, category=excluded.category,
-               updated_at=datetime('now')""",
+               updated_at=CURRENT_TIMESTAMP""",
         (key, str(value), value_type, label, description, category),
     )
     conn.commit()

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% from "_help.html" import help_box %}
+{% block content %}
+
+{% call help_box() %}
+<h6>این صفحه چه کاری انجام می‌دهد؟</h6>
+<p>تعیین می‌کند هر نوع مزایا (ازدواج، فرزند، مسکن، خوار و بار، سنوات و...) به کدام نوع استخدام تعلق می‌گیرد و اصلاً فعال است یا نه — بدون نیاز به تغییر کد.</p>
+<h6>ستون‌های جدول</h6>
+<ul>
+  <li><b>فعال:</b> اگر تیک این ستون برداشته شود، آن مزایا برای <b>هیچ‌کس</b> در محاسبهٔ حقوق لحاظ نمی‌شود، حتی اگر ستون‌های بعدی تیک داشته باشند.</li>
+  <li><b>برای بیمه‌شده / برای بیمه نشده:</b> این مزایا به کدام نوع استخدام تعلق می‌گیرد. مثال: اگر حق ازدواج بعداً برای کارکنان بیمه‌نشده هم برقرار شد، فقط کافی است تیک «برای بیمه نشده» را بزنید.</li>
+  <li><b>منبع مبلغ:</b> از کجا خوانده می‌شود — یک مقدار سراسری در «تنظیمات سیستم»، یا یک فیلد اختصاصی خود کارمند (مثل حق سنوات که در صفحهٔ «پرسنل» تعریف می‌شود).</li>
+</ul>
+<div class="cp-help-note">تغییر مبلغ خود مزایا (مثلاً افزایش حق مسکن) از این صفحه انجام نمی‌شود — باید به «تنظیمات سیستم» بروید.</div>
+{% endcall %}
+
+<div class="cp-card p-3 mb-3">
+  <div class="text-muted" style="font-size:.85rem;">
+    برای هر مزایا تعیین کنید که به کدام نوع استخدام تعلق می‌گیرد یا آن را کاملاً غیرفعال کنید.
+    مثال: اگر حق ازدواج بعداً برای کارکنان بیمه نشده نیز برقرار شد، کافی است گزینهٔ مربوطه را تیک بزنید — هیچ تغییری در کد لازم نیست.
+  </div>
+</div>
+
+{% if saved %}<div class="alert alert-success py-2 mb-3" style="font-size:.85rem;">قوانین مزایا با موفقیت ذخیره شد.</div>{% endif %}
+
+<form action="/payroll/allowance-rules/save" method="post">
+  <div class="cp-card mb-3">
+    <div class="table-responsive">
+      <table class="table cp-table mb-0">
+        <thead><tr>
+          <th>عنوان</th><th>فعال</th><th>برای بیمه‌شده</th><th>برای بیمه نشده</th><th>منبع مبلغ</th><th>کد</th>
+        </tr></thead>
+        <tbody>
+          {% for a in allowances %}
+          <tr>
+            <td class="fw-semibold">{{ a.label_fa }}</td>
+            <td><input type="checkbox" class="form-check-input" name="enabled__{{ a.code }}" {{ 'checked' if a.enabled }}></td>
+            <td><input type="checkbox" class="form-check-input" name="insured__{{ a.code }}" {{ 'checked' if a.applies_insured }}></td>
+            <td><input type="checkbox" class="form-check-input" name="non_insured__{{ a.code }}" {{ 'checked' if a.applies_non_insured }}></td>
+            <td class="text-muted" style="font-size:.82rem;">{{ a.source_fa }}</td>
+            <td dir="ltr" class="text-muted" style="font-size:.78rem;">{{ a.code }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <button type="submit" class="btn btn-primary btn-sm">ذخیره تغییرات</button>
+</form>
+
+{% endblock %}

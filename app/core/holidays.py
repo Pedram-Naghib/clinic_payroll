@@ -85,8 +85,9 @@ def seed_fixed_jalali_holidays(conn: sqlite3.Connection, jalali_year: int) -> No
         g_date: date = jalali_to_gregorian(jalali_year, jm, jd)
         conn.execute(
             """
-            INSERT OR IGNORE INTO iranian_holidays (work_date, label, source, confirmed)
+            INSERT INTO iranian_holidays (work_date, label, source, confirmed)
             VALUES (?, ?, 'computed_fixed', 1)
+            ON CONFLICT DO NOTHING
             """,
             (g_date.isoformat(), label),
         )
@@ -134,9 +135,10 @@ def seed_lunar_holidays_estimate(conn: sqlite3.Connection, jalali_year: int) -> 
             if g_start <= g_date <= g_end:
                 conn.execute(
                     """
-                    INSERT OR IGNORE INTO iranian_holidays
+                    INSERT INTO iranian_holidays
                         (work_date, label, source, confirmed)
                     VALUES (?, ?, 'computed_lunar_estimate', 0)
+                    ON CONFLICT DO NOTHING
                     """,
                     (g_date.isoformat(), label),
                 )
@@ -170,8 +172,10 @@ def adjust_holiday_date(conn: sqlite3.Connection, old_date: str, new_date: str) 
     conn.execute("DELETE FROM iranian_holidays WHERE work_date = ?", (old_date,))
     conn.execute(
         """
-        INSERT OR REPLACE INTO iranian_holidays (work_date, label, source, confirmed)
+        INSERT INTO iranian_holidays (work_date, label, source, confirmed)
         VALUES (?, ?, ?, 1)
+        ON CONFLICT(work_date) DO UPDATE SET
+            label = excluded.label, source = excluded.source, confirmed = excluded.confirmed
         """,
         (new_date, row["label"], row["source"]),
     )

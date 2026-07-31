@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <a href="/insurance/invoices" class="btn btn-sm btn-light border"><i class="bi bi-arrow-right"></i> بازگشت به صورت‌حساب‌ها</a>
+  <form action="/insurance/invoices/{{ invoice.id }}/delete" method="post"
+        onsubmit="return confirm('{{ 'این صورت‌حساب و پرداخت‌های تطبیق‌داده‌شده‌اش حذف بشه؟ پرداخت‌ها خودشون حذف نمی‌شن، فقط به حالت تطبیق‌نشده برمی‌گردن.' if invoice.paid > 0 else 'این صورت‌حساب حذف بشه؟' }}');">
+    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i> حذف صورت‌حساب</button>
+  </form>
+</div>
+
+{% if error %}<div class="alert alert-danger py-2 mb-3" style="font-size:.85rem;">{{ error }}</div>{% endif %}
+
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="cp-card p-3 mb-3">
+      <div class="cp-section-title">اطلاعات صورت‌حساب</div>
+      <table class="table table-sm mb-0" style="font-size:.85rem;">
+        <tr><td class="text-muted">شرکت بیمه</td><td class="fw-semibold text-end">{{ invoice.company }}</td></tr>
+        <tr><td class="text-muted">بخش</td><td class="text-end">{{ invoice.department_label }}</td></tr>
+        <tr><td class="text-muted">دوره</td><td class="text-end">{{ invoice.period_start | jalali }} تا {{ invoice.period_end | jalali }}</td></tr>
+        <tr><td class="text-muted">شماره صورت‌حساب</td><td class="text-end" dir="ltr">{{ invoice.number }}</td></tr>
+        <tr><td class="text-muted">مبلغ صورت‌حساب</td><td class="text-end" dir="ltr">{{ '{:,}'.format(invoice.amount) }}</td></tr>
+        <tr><td class="text-muted">مبلغ دریافتی</td><td class="text-end" dir="ltr">{{ '{:,}'.format(invoice.paid) }}</td></tr>
+        <tr><td class="text-muted">کسورات بیمه</td><td class="text-end" dir="ltr">{{ '{:,}'.format(invoice.insurer_deduction) }}</td></tr>
+        <tr><td class="text-muted fw-semibold">مانده</td><td class="text-end fw-semibold" dir="ltr">{{ '{:,}'.format(invoice.outstanding) }}</td></tr>
+        <tr><td class="text-muted">وضعیت</td><td class="text-end"><span class="cp-status {{ invoice.status_class }}">{{ invoice.status }}</span></td></tr>
+      </table>
+    </div>
+
+    <div class="cp-card p-3">
+      <div class="cp-section-title">ثبت کسورات بیمه</div>
+      <div class="text-muted mb-2" style="font-size:.8rem;">
+        مبلغی که بیمه رسماً کسر کرده رو اینجا وارد کنید.
+      </div>
+      <form action="/insurance/invoices/{{ invoice.id }}/deduction" method="post" class="d-flex gap-2">
+        <input type="text" name="insurer_deduction" class="form-control form-control-sm" value="{{ invoice.insurer_deduction }}" placeholder="0">
+        <button type="submit" class="btn btn-primary btn-sm text-nowrap">ثبت</button>
+      </form>
+      {% if invoice.outstanding > 0 %}
+      <form action="/insurance/invoices/{{ invoice.id }}/deduction" method="post" class="mt-2"
+            onsubmit="return confirm('کل مانده ({{ '{:,}'.format(invoice.outstanding) }}) به‌عنوان کسورات ثبت شود؟');">
+        <input type="hidden" name="insurer_deduction" value="{{ invoice.insurer_deduction + invoice.outstanding }}">
+        <button type="submit" class="btn btn-outline-danger btn-sm w-100">تبدیل کل مانده ({{ '{:,}'.format(invoice.outstanding) }}) به کسورات</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="cp-card p-3">
+      <div class="cp-section-title">پرداخت‌های ثبت‌شده برای این صورت‌حساب</div>
+      <div class="table-responsive">
+        <table class="table cp-table mb-0">
+          <thead><tr><th>تاریخ واریز</th><th>مبلغ</th><th>شماره تراکنش</th><th></th></tr></thead>
+          <tbody>
+            {% for p in invoice.payments %}
+            <tr>
+              <td>{{ p.date | jalali }}</td>
+              <td dir="ltr">{{ '{:,}'.format(p.amount) }}</td>
+              <td dir="ltr">{{ p.ref }}</td>
+              <td class="text-end">
+                <form action="/insurance/payments/{{ p.id }}/delete" method="post"
+                      onsubmit="return confirm('این پرداخت حذف بشه؟ صورت‌حساب دوباره به همین مقدار مانده‌دار می‌شه.');">
+                  <input type="hidden" name="next" value="/insurance/invoices/{{ invoice.id }}">
+                  <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2" style="font-size:.72rem;">حذف</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

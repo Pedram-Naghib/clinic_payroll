@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ورود · سامانه مدیریت درمانگاه</title>
+<link rel="stylesheet" href="/static/vendor/bootstrap.rtl.min.css">
+<link rel="stylesheet" href="/static/vendor/bootstrap-icons.min.css">
+<link rel="stylesheet" href="/static/css/theme.css">
+</head>
+<body>
+<div class="cp-auth-wrap">
+  <div class="cp-auth-card">
+    <img src="/static/img/clinic_logo.png" class="cp-auth-logo" alt="">
+    <h1 class="text-center h5 fw-bold mb-1">سامانه مدیریت درمانگاه</h1>
+    <p class="text-center text-muted mb-4" style="font-size:.85rem;">حقوق و دستمزد · بیمه</p>
+
+    {% if error %}
+    <div class="alert alert-danger py-2" style="font-size:.85rem;">{{ error }}</div>
+    {% endif %}
+
+    <form action="/login" method="post">
+      <div class="mb-3">
+        <label class="form-label" style="font-size:.85rem;">نام کاربری</label>
+        <select name="username" class="form-select" autofocus required>
+          <option value="" disabled selected>انتخاب کنید...</option>
+          {% for o in login_options %}<option value="{{ o.username }}">{{ o.display_name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="mb-4">
+        <label class="form-label" style="font-size:.85rem;">رمز عبور</label>
+        <input type="password" name="password" class="form-control" required>
+      </div>
+      <button class="btn btn-primary w-100 py-2 fw-semibold" type="submit">ورود</button>
+    </form>
+  </div>
+</div>
+</body>
+</html>

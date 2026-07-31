@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% from "_help.html" import help_box %}
+{% block content %}
+
+{% call help_box() %}
+<p>«ثبت پرداخت جدید» بزنید، بعد از لیست «تطبیق‌نشده» روش کلیک کنید تا پیشنهادها بیاد. درصد تطابق رو قبل تأیید چشمی چک کنید.</p>
+<p>اگه یه واریزی چند صورت‌حساب رو با هم پوشش می‌ده (مثلاً درمانگاه+فیزیو یکجا)، از «تطبیق دستی» چند بار استفاده کنید، هر بار با یک صورت‌حساب و بخشی از مبلغ.</p>
+{% endcall %}
+
+<div class="d-flex justify-content-end mb-3">
+  <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#cpNewPaymentForm"><i class="bi bi-plus-lg"></i> ثبت پرداخت جدید</button>
+</div>
+
+<div class="collapse mb-3" id="cpNewPaymentForm">
+  <div class="cp-card p-3">
+    <div class="cp-section-title">پرداخت جدید</div>
+    <form class="row g-3" action="/insurance/payments/new" method="post">
+      <div class="col-md-4">
+        <label class="form-label" style="font-size:.82rem;">شرکت بیمه</label>
+        <select name="company_id" class="form-select" required>
+          {% for co in companies %}<option value="{{ co.id }}">{{ co.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" style="font-size:.82rem;">مبلغ واریزی (ریال)</label>
+        <input type="text" name="amount" class="form-control" required>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" style="font-size:.82rem;">تاریخ واریز (شمسی)</label>
+        <input type="text" name="received_date" class="form-control" placeholder="1404/04/05" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" style="font-size:.82rem;">شماره تراکنش (اختیاری)</label>
+        <input type="text" name="reference_no" class="form-control" dir="ltr">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" style="font-size:.82rem;">یادداشت (اختیاری)</label>
+        <input type="text" name="notes" class="form-control">
+      </div>
+      <div class="col-12">
+        <button class="btn btn-primary btn-sm" type="submit">ثبت پرداخت</button>
+        <button class="btn btn-light border btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#cpNewPaymentForm">انصراف</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="cp-card p-3">
+      <div class="cp-section-title">پرداخت‌های تطبیق‌نشده</div>
+      {% if not unmatched_payments %}
+      <div class="text-muted" style="font-size:.85rem;">پرداخت تطبیق‌نشده‌ای وجود ندارد.</div>
+      {% endif %}
+      <div class="d-flex flex-column gap-2">
+        {% for p in unmatched_payments %}
+        <div class="border rounded-3 p-2 px-3 bg-white {{ 'cp-selected-payment' if selected_payment and p.id == selected_payment.id }}"
+             style="{{ 'border-color:var(--cp-teal) !important; box-shadow:0 0 0 .15rem rgba(14,143,138,.12);' if selected_payment and p.id == selected_payment.id }}">
+          <a href="/insurance/reconciliation?payment_id={{ p.id }}" class="d-block text-decoration-none text-body">
+            <div class="d-flex justify-content-between">
+              <span class="fw-semibold">{{ '{:,}'.format(p.amount) }}</span>
+              <span class="cp-status warn">در انتظار</span>
+            </div>
+            <div class="text-muted mt-1" style="font-size:.78rem;">{{ p.company_name }} · واریز {{ p.received_date | jalali }}</div>
+          </a>
+          <form action="/insurance/payments/{{ p.id }}/delete" method="post" class="mt-1"
+                onsubmit="return confirm('این پرداخت حذف بشه؟');">
+            <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2" style="font-size:.72rem;">حذف</button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-8">
+    {% if not selected_payment %}
+    <div class="cp-card p-4 text-center text-muted" style="font-size:.9rem;">
+      یک پرداخت تطبیق‌نشده را از فهرست سمت راست انتخاب کنید تا پیشنهادهای تطبیق نمایش داده شود.
+    </div>
+    {% else %}
+    <div class="cp-card p-3 mb-3">
+      <div class="d-flex justify-content-between align-items-start mb-2">
+        <div>
+          <div class="cp-section-title mb-0">پرداخت انتخاب‌شده</div>
+          <div class="text-muted" style="font-size:.82rem;">
+            {{ selected_payment.company_name }} · واریز به حساب در {{ selected_payment.received_date | jalali }}
+            {% if selected_payment.reference_no %} · شماره تراکنش {{ selected_payment.reference_no }}{% endif %}
+          </div>
+        </div>
+        <div class="text-end">
+          <div class="fw-bold" style="font-size:1.3rem;">{{ '{:,}'.format(selected_payment.amount) }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cp-section-title">پیشنهادهای تطبیق (بر اساس مبلغ و تاریخ)</div>
+
+    {% if not suggestions %}
+    <div class="cp-card p-3 mb-2 text-muted" style="font-size:.85rem;">
+      صورت‌حساب باز و مناسبی برای این شرکت بیمه یافت نشد.
+    </div>
+    {% endif %}
+
+    {% for s in suggestions %}
+    <div class="cp-card p-3 mb-2">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <div class="fw-semibold">صورت‌حساب {{ s.invoice_number or ('#' + s.invoice_id|string) }} — {{ selected_payment.company_name }}</div>
+          <div class="text-muted" style="font-size:.8rem;">دوره {{ s.period_start | jalali }} تا {{ s.period_end | jalali }} · مبلغ صورت‌حساب {{ '{:,}'.format(s.amount) }} · مانده {{ '{:,}'.format(s.balance) }}</div>
+        </div>
+        <div class="text-end" style="min-width:150px;">
+          <div class="d-flex align-items-center justify-content-end gap-2 mb-1">
+            <span class="fw-bold" style="color:{{ '#0b756f' if s.score >= 70 else '#6c757d' }};">{{ s.score }}%</span>
+            <div class="progress" style="width:70px; height:6px;">
+              <div class="progress-bar" style="width:{{ s.score }}%; background:{{ 'var(--cp-teal)' if s.score >= 70 else '#adb5bd' }};"></div>
+            </div>
+          </div>
+          <form action="/insurance/reconciliation/{{ selected_payment.id }}/confirm" method="post">
+            <input type="hidden" name="invoice_id" value="{{ s.invoice_id }}">
+            <input type="hidden" name="allocated_amount" value="{{ [s.balance, selected_payment.amount] | min }}">
+            <input type="hidden" name="score" value="{{ s.score }}">
+            <button type="submit" class="btn btn-sm {{ 'btn-primary' if s.score >= 70 else 'btn-outline-secondary' }}">تایید تطبیق</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+
+    <div class="cp-card p-3">
+      <div class="cp-section-title">تطبیق دستی با صورت‌حساب دیگر</div>
+      <form action="/insurance/reconciliation/{{ selected_payment.id }}/confirm" method="post" class="row g-2 align-items-end">
+        <div class="col-md-6">
+          <select name="invoice_id" class="form-select form-select-sm" required>
+            <option value="">انتخاب صورت‌حساب...</option>
+            {% for inv in all_company_invoices %}
+            <option value="{{ inv.id }}">{{ inv.invoice_number or ('#' + inv.id|string) }} — {{ inv.period_start | jalali }} تا {{ inv.period_end | jalali }} — {{ '{:,}'.format(inv.amount) }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <input type="text" name="allocated_amount" class="form-control form-control-sm" placeholder="مبلغ تخصیص (ریال)" value="{{ selected_payment.amount }}" required>
+        </div>
+        <div class="col-md-2">
+          <button type="submit" class="btn btn-sm btn-light border w-100">تطبیق دستی</button>
+        </div>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

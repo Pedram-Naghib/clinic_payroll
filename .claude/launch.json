@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "clinic-webapp",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "uvicorn", "webapp.main:app", "--port", "8000"],
+      "port": 8000,
+      "autoPort": true
+    }
+  ]
+}

@@ -15,6 +15,7 @@ from PySide6.QtWidgets import QApplication, QMainWindow, QTabWidget
 
 from app.db.database import get_connection, init_db
 from app.db.migrations.migrate_v3_leave_payslip import migrate as migrate_v3
+from app.db.migrations.migrate_v4_attendance_source import migrate as migrate_v4
 from app.core.holidays import run_startup_holiday_seed
 from app.core.jalali import gregorian_to_jalali
 from app.ui.config_tab import ConfigTab
@@ -71,6 +72,7 @@ def main():
     conn = get_connection()
     try:
         migrate_v3(conn)
+        migrate_v4(conn)
     finally:
         conn.close()
     app = QApplication(sys.argv)

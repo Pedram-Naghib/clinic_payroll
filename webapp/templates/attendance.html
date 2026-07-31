@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+{% from "_help.html" import help_box %}
+{% block content %}
+
+{% call help_box() %}
+<h6>این صفحه چه کاری انجام می‌دهد؟</h6>
+<p>سه کار مجزا اینجا انجام می‌شود: <b>۱)</b> بارگذاری فایل خروجی دستگاه ثبت حضور، <b>۲)</b> محاسبهٔ ساعت کارکرد از روی آن رکوردها، و <b>۳)</b> ثبت دستی حضور برای روزهایی که دستگاه داده نداشته یا داده‌اش قابل اعتماد نیست.</p>
+<h6>بارگذاری فایل دستگاه</h6>
+<ol>
+  <li>فایل <code dir="ltr">GLG_xxx.TXT</code> خروجی دستگاه را انتخاب و «بارگذاری» کنید. رکوردهای تکراری خودکار نادیده گرفته می‌شوند، پس بارگذاری چندبارهٔ یک فایل مشکلی ایجاد نمی‌کند.</li>
+  <li>اگر بعضی رکوردها «بدون مالک» باشند، یعنی شمارهٔ دستگاه (EnNo) آن‌ها به هیچ پرسنلی در سیستم وصل نیست. شمارهٔ درست را در صفحهٔ «پرسنل» برای آن فرد وارد کنید، سپس «اتصال مجدد رکوردهای بدون مالک» را بزنید تا بدون نیاز به بارگذاری دوبارهٔ فایل، رکوردها وصل شوند.</li>
+</ol>
+<h6>محاسبهٔ ساعت کارکرد</h6>
+<p>سال و ماه شمسی را انتخاب و «محاسبه ساعات کار» را بزنید. این کار از روی رکوردهای خام دستگاه، ساعت کارکرد روزانهٔ هر نفر را می‌سازد و برای استفادهٔ صفحهٔ «اجرای حقوق» ذخیره می‌کند. اجرای این محاسبه برای یک ماه، رکوردهای <b>دستگاهی</b> قبلی همان ماه را جایگزین می‌کند — اما به حضورهای <b>دستی</b> کاری ندارد (بخش بعد را ببینید).</p>
+<h6>ثبت دستی حضور</h6>
+<p>وقتی دستگاه برای یک ماه خاص داده نداشته یا اشتباه ثبت کرده، می‌توانید مستقیم <b>مجموع ساعت کارکرد همان ماه</b> را برای یک کارمند وارد کنید — مثلاً «۱۸۰ ساعت این ماه کار کرد، ۱۰ ساعتش هم روز تعطیل بود». این عدد در محاسبهٔ حقوق دقیقاً مثل داده‌های دستگاه لحاظ می‌شود و پس از ثبت، بلافاصله «پیش‌نمایش حقوق» همان کارمند برای کل ماه نمایش داده می‌شود تا اثر آن را ببینید.</p>
+<ul>
+  <li><b>ساعت تعطیل</b> زیرمجموعهٔ ساعت کل است، نه اضافه بر آن — یعنی اگر کل ۱۸۰ ساعت و از این میان ۱۰ ساعت روز تعطیل بوده، «ساعت کل» را ۱۸۰ و «ساعت تعطیل» را ۱۰ بنویسید. برای ثبت ساعت تعطیل، آن ماه باید حداقل یک روز تعطیل رسمی ثبت‌شده داشته باشد؛ در غیر این صورت خطا می‌گیرید.</li>
+  <li>ثبت دوبارهٔ همان کارمند برای همان ماه، عدد قبلی را <b>جایگزین</b> می‌کند (اضافه نمی‌شود).</li>
+  <li><b>مرخصی جدا وارد نمی‌شود:</b> اگر ساعت کل وارد‌شده کمتر از سقف ماهانه باشد، سیستم به‌طور خودکار کمبود را (طبق همان منطق همیشگی) از موجودی مرخصی کارمند در صفحهٔ «اجرای حقوق» پوشش می‌دهد — نیازی به وارد کردن جداگانهٔ ساعت مرخصی اینجا نیست.</li>
+  <li>برای حذف حضور دستی یک کارمند در این ماه، از جدول کنار همین فرم دکمهٔ سطل زباله را بزنید.</li>
+</ul>
+<div class="cp-help-note">حضور دستی فقط زمانی به‌طور خودکار جایگزین می‌شود که دستگاه برای <b>همان ماه</b> واقعاً داده واقعی داشته باشد؛ در غیر این صورت با اجرای دوبارهٔ «محاسبه ساعات کار» پاک نمی‌شود.</div>
+{% endcall %}
+
+<div class="cp-card p-3 mb-3">
+  <div class="text-muted" style="font-size:.85rem;">
+    فایل خروجی دستگاه (GLG_xxx.TXT) را بارگذاری کنید، سپس ماه دلخواه را انتخاب و دکمهٔ «محاسبه ساعات کار» را بزنید.
+  </div>
+</div>
+
+{% if import_result %}
+<div class="alert {{ 'alert-warning' if import_result.unmatched_count else 'alert-success' }} py-2 mb-3" style="font-size:.85rem;">
+  {{ import_result.parsed }} رکورد خوانده شد · {{ import_result.inserted }} رکورد جدید اضافه شد ·
+  {{ import_result.duplicates }} رکورد تکراری نادیده گرفته شد
+  {% if import_result.unmatched_count %}
+  <br>{{ import_result.unmatched_count }} رکورد به هیچ کارمندی تخصیص نیافت — شماره‌های دستگاه ناشناخته:
+  {{ import_result.unmatched_enroll_nos | join('، ') }}.
+  شمارهٔ دستگاه صحیح را در صفحهٔ «پرسنل» وارد کنید و «اتصال مجدد رکوردهای بدون مالک» را بزنید.
+  {% endif %}
+</div>
+{% endif %}
+
+{% if relink_result is not none %}
+<div class="alert alert-success py-2 mb-3" style="font-size:.85rem;">{{ relink_result }} رکورد به کارمندان متصل شد.</div>
+{% endif %}
+
+{% if clear_result %}
+<div class="alert alert-success py-2 mb-3" style="font-size:.85rem;">{{ clear_result }}</div>
+{% endif %}
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-5">
+    <div class="cp-card p-3 h-100">
+      <div class="cp-section-title">بارگذاری فایل دستگاه</div>
+      {% if role == 'owner' %}
+      <form action="/payroll/attendance/import" method="post" enctype="multipart/form-data" class="d-flex gap-2 mb-3">
+        <input type="file" name="file" accept=".txt,.TXT" class="form-control form-control-sm" required>
+        <button type="submit" class="btn btn-primary btn-sm text-nowrap">بارگذاری</button>
+      </form>
+      {% endif %}
+      <div class="text-muted" style="font-size:.8rem;">
+        {% if punch_summary.total %}
+        {{ '{:,}'.format(punch_summary.total) }} رکورد در دیتابیس
+        {% if punch_summary.unmatched %} · {{ '{:,}'.format(punch_summary.unmatched) }} بدون مالک{% endif %}
+        {% if punch_summary.earliest and punch_summary.latest %} · {{ punch_summary.earliest }} → {{ punch_summary.latest }}{% endif %}
+        {% else %}
+        هنوز فایلی بارگذاری نشده است.
+        {% endif %}
+      </div>
+      {% if role == 'owner' %}
+      <div class="d-flex gap-2 flex-wrap mt-3">
+        <form action="/payroll/attendance/relink" method="post"><button type="submit" class="btn btn-sm btn-light border">اتصال مجدد رکوردهای بدون مالک</button></form>
+        <form action="/payroll/attendance/clear-month" method="post" onsubmit="return confirm('رکوردهای دستگاه این ماه برای همیشه حذف می‌شود. ادامه می‌دهید؟');">
+          <input type="hidden" name="year" value="{{ sel_year }}"><input type="hidden" name="month" value="{{ sel_month }}">
+          <button type="submit" class="btn btn-sm btn-light border">پاک‌کردن رکوردهای این ماه</button>
+        </form>
+        <form action="/payroll/attendance/clear-all" method="post" onsubmit="return confirm('همهٔ رکوردهای دستگاه در کل دیتابیس برای همیشه حذف می‌شود. ادامه می‌دهید؟');">
+          <button type="submit" class="btn btn-sm btn-outline-danger">پاک‌کردن همهٔ رکوردها</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="cp-card p-3 h-100">
+      <div class="cp-section-title">محاسبه ساعات کار</div>
+      <form action="/payroll/attendance/compute" method="post" class="d-flex gap-2 align-items-end flex-wrap">
+        <div>
+          <label class="form-label" style="font-size:.8rem;">سال</label>
+          <select name="year" class="form-select form-select-sm">
+            {% for y in year_range %}<option value="{{ y }}" {{ 'selected' if y == sel_year }}>{{ y }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="form-label" style="font-size:.8rem;">ماه</label>
+          <select name="month" class="form-select form-select-sm">
+            {% for i, name in jalali_months %}<option value="{{ i }}" {{ 'selected' if i == sel_month }}>{{ name }}</option>{% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm">محاسبه ساعات کار</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-5">
+    <div class="cp-card p-3 h-100">
+      <div class="cp-section-title">ثبت دستی حضور</div>
+      <div class="text-muted mb-2" style="font-size:.8rem;">
+        برای روزی که به خروجی دستگاه اعتماد ندارید یا دستگاه ثبتی ندارد، ساعت کارکرد را همین‌جا مستقیم وارد کنید.
+        این مقدار در محاسبهٔ حقوق لحاظ می‌شود و با اجرای دوبارهٔ «محاسبه ساعات کار» پاک نمی‌شود — مگر اینکه دستگاه خودش برای همان روز داده واقعی داشته باشد.
+      </div>
+      {% if manual_error %}<div class="alert alert-danger py-2 mb-2" style="font-size:.85rem;">{{ manual_error }}</div>{% endif %}
+      {% if manual_saved %}<div class="alert alert-success py-2 mb-2" style="font-size:.85rem;">ثبت شد.</div>{% endif %}
+      <form action="/payroll/attendance/manual/save" method="post" class="row g-2">
+        <input type="hidden" name="year" value="{{ sel_year }}">
+        <input type="hidden" name="month" value="{{ sel_month }}">
+        <div class="col-12">
+          <label class="form-label" style="font-size:.8rem;">کارمند</label>
+          <select name="employee_id" class="form-select form-select-sm" required>
+            {% for e in manual_employees %}<option value="{{ e.id }}">{{ e.full_name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-6">
+          <label class="form-label" style="font-size:.8rem;">ساعت کل کارکرد این ماه</label>
+          <input type="text" name="total_hours" class="form-control form-control-sm" placeholder="180" required>
+        </div>
+        <div class="col-6">
+          <label class="form-label" style="font-size:.8rem;">از این میان، ساعت تعطیل‌کاری</label>
+          <input type="text" name="holiday_hours" class="form-control form-control-sm" placeholder="0" value="0">
+        </div>
+        <div class="col-12">
+          <label class="form-label" style="font-size:.8rem;">یادداشت (اختیاری)</label>
+          <input type="text" name="note" class="form-control form-control-sm" placeholder="دلیل ثبت دستی">
+        </div>
+        <div class="col-12">
+          <button type="submit" class="btn btn-primary btn-sm">ثبت و مشاهدهٔ محاسبه</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="cp-card p-3 h-100">
+      <div class="cp-section-title">حضورهای ثبت‌شدهٔ دستی این ماه</div>
+      <div class="table-responsive mb-3">
+        <table class="table cp-table mb-0">
+          <thead><tr><th>کارمند</th><th>ساعت کل</th><th>ساعت تعطیل</th><th></th></tr></thead>
+          <tbody>
+            {% for m in manual_entries %}
+            <tr>
+              <td class="fw-semibold">{{ m.employee_name }}</td>
+              <td>{{ "%g"|format(m.total_hours) }}</td>
+              <td>{{ "%g"|format(m.holiday_hours) }}</td>
+              <td class="text-end">
+                <form action="/payroll/attendance/manual/{{ m.employee_id }}/delete" method="post"
+                      onsubmit="return confirm('حضور دستی این کارمند برای این ماه حذف شود؟');">
+                  <input type="hidden" name="year" value="{{ sel_year }}"><input type="hidden" name="month" value="{{ sel_month }}">
+                  <button type="submit" class="btn btn-sm btn-light border"><i class="bi bi-trash"></i></button>
+                </form>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-muted text-center py-3">حضور دستی‌ای برای این ماه ثبت نشده است.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if manual_preview %}
+      <div class="border rounded-3 p-2 px-3" style="font-size:.82rem;">
+        <div class="fw-semibold mb-1">پیش‌نمایش حقوق {{ jalali_months[sel_month - 1][1] }} {{ sel_year }} برای {{ manual_preview.full_name }}</div>
+        <div class="d-flex flex-wrap gap-3">
+          <span>ساعت عادی: {{ "%g"|format(manual_preview.regular_hours) }}</span>
+          <span>اضافه‌کاری: {{ "%g"|format(manual_preview.overtime_hours) }}</span>
+          <span>ساعت تعطیل: {{ "%g"|format(manual_preview.holiday_hours) }}</span>
+          <span>حقوق پایه: {{ '{:,}'.format(manual_preview.base_pay) }}</span>
+          <span>مزایا: {{ '{:,}'.format(manual_preview.allowances_total) }}</span>
+          <span>کسر بیمه: {{ '{:,}'.format(manual_preview.insurance_deduction) }}</span>
+          <span class="fw-bold">خالص پرداختی: {{ '{:,}'.format(manual_preview.total_pay) }} ریال</span>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% if attendance_results is not none %}
+<div class="cp-card">
+  <div class="table-responsive">
+    <table class="table cp-table mb-0">
+      <thead><tr>
+        <th>نام</th><th>نوع استخدام</th><th>ساعات کارکرد</th><th>روزهای حضور</th><th>تعداد جلسات</th><th>وضعیت</th><th>خطاها</th>
+      </tr></thead>
+      <tbody>
+        {% for att in attendance_results %}
+        <tr class="{{ 'text-muted' if att.is_fixed_pay else '' }}">
+          <td class="fw-semibold">{{ att.full_name }}</td>
+          <td>{{ 'بیمه‌شده' if att.employment_type == 'insured' else 'غیر بیمه‌شده' }}</td>
+          <td>{{ '%.1f' | format(att.total_hours) }}</td>
+          <td>{{ att.days_worked }}</td>
+          <td>{{ att.sessions | length }}</td>
+          <td>
+            {% if att.is_fixed_pay %}<span class="cp-status muted">حقوق ثابت</span>
+            {% elif not att.sessions and att.total_hours == 0 %}<span class="cp-status muted">بدون ثبت</span>
+            {% elif att.anomalies %}<span class="cp-status warn" title="{{ att.anomalies | join('\n') }}">⚠ {{ att.anomalies | length }} مورد</span>
+            {% else %}<span class="cp-status ok">✓</span>
+            {% endif %}
+          </td>
+          <td>{{ att.anomalies | length }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

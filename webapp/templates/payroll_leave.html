@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% from "_help.html" import help_box %}
+{% block content %}
+
+{% call help_box() %}
+<h6>این صفحه چه کاری انجام می‌دهد؟</h6>
+<p>ثبت و پیگیری مرخصی استحقاقی و استعلاجی کارکنان، و «بازخرید» موجودی مرخصی در پایان سال.</p>
+<h6>ثبت مرخصی جدید</h6>
+<ol>
+  <li>کارمند، نوع مرخصی (استحقاقی/استعلاجی) و بازهٔ تاریخ شمسی را وارد کنید (فرم تاریخ: <code dir="ltr">1405/03/15</code>).</li>
+  <li>برای مرخصی <b>استحقاقی</b>، تعداد روز از «موجودی مرخصی» همان کارمند کسر می‌شود و اگر موجودی کافی نباشد یا از سقف سالانه (قابل تنظیم در «تنظیمات سیستم») رد شود، سیستم خطا می‌دهد و ثبت نمی‌کند.</li>
+  <li>مرخصی <b>استعلاجی</b> از موجودی کسر نمی‌شود، فقط برای سابقه ثبت می‌شود.</li>
+</ol>
+<h6>ردیف‌های «خودکار» در تاریخچه</h6>
+<p>وقتی ساعت کارکرد ماهانهٔ یک کارمند بیمه‌شده کمتر از حد نصاب باشد، سیستم هنگام <b>ذخیرهٔ</b> اجرای حقوق (نه در پیش‌نمایش)، به‌طور خودکار بخشی از این کمبود را از موجودی مرخصی او پوشش می‌دهد و یک ردیف با منبع «خودکار» در این تاریخچه ثبت می‌کند. این ردیف‌ها قابل حذف مستقیم نیستند — فقط با حذف یا بازمحاسبهٔ همان اجرای حقوق اصلاح می‌شوند.</p>
+<h6>بازخرید پایان سال</h6>
+<p>دکمهٔ «تسویهٔ پایان سال» موجودی فعلی مرخصی کارمند را به ریال محاسبه می‌کند (بر اساس حقوق ثابت ماهانه ÷ ۳۰ در روز) و موجودی را صفر می‌کند. این عمل غیرقابل بازگشت است و <b>پرداخت واقعی وجه را خودتان باید انجام دهید</b> — این سیستم فقط عدد را محاسبه و موجودی را صفر می‌کند، حسابداری/پرداخت جداگانه‌ای ندارد.</p>
+<div class="cp-help-note">این صفحه فقط برای دسترسی «مدیر» (Owner) قابل مشاهده است.</div>
+{% endcall %}
+
+<div class="cp-card p-3 mb-3">
+  <div class="text-muted" style="font-size:.85rem;">
+    ثبت و پیگیری مرخصی استحقاقی کارکنان (حداکثر سقف سالانه قابل تنظیم در «تنظیمات سیستم»، پیش‌فرض ۳۰ روز در سال).
+    کسری ساعت کاری ماهانهٔ کارکنان بیمه‌شده به‌صورت خودکار و در زمان ذخیرهٔ اجرای حقوق از همین موجودی کسر می‌شود (ردیف‌های «خودکار» در جدول زیر).
+  </div>
+</div>
+
+{% if saved %}<div class="alert alert-success py-2 mb-3" style="font-size:.85rem;">مرخصی با موفقیت ثبت شد.</div>{% endif %}
+{% if error %}<div class="alert alert-danger py-2 mb-3" style="font-size:.85rem;">{{ error }}</div>{% endif %}
+{% if settle_result %}<div class="alert alert-success py-2 mb-3" style="font-size:.85rem;">مبلغ {{ '{:,}'.format(settle_result) }} ریال بازخرید مرخصی محاسبه و موجودی صفر شد.</div>{% endif %}
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-5">
+    <div class="cp-card p-3 h-100">
+      <div class="cp-section-title">ثبت مرخصی جدید</div>
+      <form action="/payroll/leave/new" method="post" class="row g-2">
+        <div class="col-12">
+          <label class="form-label" style="font-size:.8rem;">کارمند</label>
+          <select name="employee_id" class="form-select form-select-sm" required>
+            {% for e in employees %}<option value="{{ e.id }}" {{ 'selected' if e.id == sel_employee_id }}>{{ e.full_name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-12">
+          <label class="form-label" style="font-size:.8rem;">نوع مرخصی</label>
+          <select name="leave_type" class="form-select form-select-sm">
+            <option value="vacation">استحقاقی</option>
+            <option value="medical">استعلاجی</option>
+          </select>
+        </div>
+        <div class="col-6">
+          <label class="form-label" style="font-size:.8rem;">تاریخ شروع (شمسی)</label>
+          <input type="text" name="start_date" class="form-control form-control-sm" value="{{ today_jalali_str }}" placeholder="1405/03/15" required>
+        </div>
+        <div class="col-6">
+          <label class="form-label" style="font-size:.8rem;">تاریخ پایان (شمسی)</label>
+          <input type="text" name="end_date" class="form-control form-control-sm" value="{{ today_jalali_str }}" placeholder="1405/03/15" required>
+        </div>
+        <div class="col-12">
+          <label class="form-label" style="font-size:.8rem;">تعداد روز</label>
+          <input type="text" name="days_count" class="form-control form-control-sm" placeholder="1" required>
+        </div>
+        <div class="col-12">
+          <label class="form-label" style="font-size:.8rem;">یادداشت (اختیاری)</label>
+          <input type="text" name="notes" class="form-control form-control-sm">
+        </div>
+        <div class="col-12">
+          <button type="submit" class="btn btn-primary btn-sm">ثبت مرخصی</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="cp-card p-3 h-100">
+      <div class="cp-section-title">موجودی مرخصی کارکنان</div>
+      <div class="table-responsive">
+        <table class="table cp-table mb-0">
+          <thead><tr><th>کارمند</th><th>موجودی (روز)</th><th>استفاده‌شده امسال</th><th>سقف سالانه</th><th></th></tr></thead>
+          <tbody>
+            {% for b in balances %}
+            <tr>
+              <td class="fw-semibold">{{ b.name }}</td>
+              <td>{{ "%g"|format(b.balance) }}</td>
+              <td>{{ "%g"|format(b.used) }}</td>
+              <td>{{ b.cap }}</td>
+              <td class="text-end">
+                {% if b.balance > 0 %}
+                <form action="/payroll/leave/{{ b.id }}/settle" method="post" onsubmit="return confirm('تسویهٔ پایان سال برای {{ b.name }}: موجودی فعلی {{ '%g'|format(b.balance) }} روز. با تایید، موجودی این کارمند صفر می‌شود. ادامه می‌دهید؟');">
+                  <button type="submit" class="btn btn-sm btn-outline-secondary">تسویهٔ پایان سال</button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div class="cp-section-title mb-0">تاریخچه مرخصی‌ها</div>
+  <form action="/payroll/leave" method="get" class="d-flex gap-2">
+    <select name="employee_id" class="form-select form-select-sm" onchange="this.form.submit()">
+      <option value="">همهٔ کارکنان</option>
+      {% for e in employees %}<option value="{{ e.id }}" {{ 'selected' if e.id == sel_employee_id }}>{{ e.full_name }}</option>{% endfor %}
+    </select>
+  </form>
+</div>
+
+<div class="cp-card">
+  <div class="table-responsive">
+    <table class="table cp-table mb-0">
+      <thead><tr>
+        <th>کارمند</th><th>نوع</th><th>از تاریخ</th><th>تا تاریخ</th><th>تعداد روز</th><th>وضعیت</th><th>منبع</th><th>یادداشت</th><th></th>
+      </tr></thead>
+      <tbody>
+        {% for h in history %}
+        <tr class="{{ 'text-muted' if h.source == 'auto_shortfall' else '' }}">
+          <td class="fw-semibold">{{ h.employee_name }}</td>
+          <td>{{ 'استحقاقی' if h.leave_type == 'vacation' else 'استعلاجی' }}</td>
+          <td>{{ h.start_date }}</td>
+          <td>{{ h.end_date }}</td>
+          <td>{{ "%g"|format(h.days_count) }}</td>
+          <td>{{ {'approved':'تأیید شده','pending':'در انتظار','rejected':'رد شده'}.get(h.status, h.status) }}</td>
+          <td>{{ 'خودکار (کسری کارکرد)' if h.source == 'auto_shortfall' else 'دستی' }}</td>
+          <td>{{ h.notes or '' }}</td>
+          <td class="text-end">
+            {% if h.source != 'auto_shortfall' %}
+            <form action="/payroll/leave/{{ h.id }}/cancel" method="post" onsubmit="return confirm('این مرخصی برای همیشه حذف و موجودی مربوطه بازگردانده می‌شود. ادامه می‌دهید؟');">
+              {% if sel_employee_id %}<input type="hidden" name="employee_id" value="{{ sel_employee_id }}">{% endif %}
+              <button type="submit" class="btn btn-sm btn-light border"><i class="bi bi-trash"></i></button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

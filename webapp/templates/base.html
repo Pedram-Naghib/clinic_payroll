@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}{{ page_title }} · کلینیک{% endblock %}</title>
+<link rel="icon" href="/static/img/faveicon-and-where-ever-else-its-applicable.png">
+<link rel="stylesheet" href="/static/vendor/bootstrap.rtl.min.css">
+<link rel="stylesheet" href="/static/vendor/bootstrap-icons.min.css">
+<link rel="stylesheet" href="/static/css/theme.css">
+</head>
+<body>
+
+<div class="cp-shell">
+  <div class="cp-sidebar-backdrop" id="cpBackdrop"></div>
+
+  <aside class="cp-sidebar d-print-none" id="cpSidebar">
+    <div class="cp-brand">
+      <img src="/static/img/clinic_logo.png" alt="">
+      <div>
+        <div class="cp-brand-name">درمانگاه</div>
+        <div class="cp-brand-sub">سامانه مدیریت</div>
+      </div>
+    </div>
+
+    <nav class="cp-nav">
+      {% if role == 'owner' %}
+      <a class="nav-link {% if active=='dashboard' %}active{% endif %}" href="/">
+        <i class="bi bi-grid-1x2"></i> داشبورد
+      </a>
+      {% endif %}
+
+      {% if role in ('owner', 'manager') %}
+      <div class="cp-nav-section cp-nav-toggle" data-nav-toggle="payroll">
+        <span>حقوق و دستمزد</span><i class="bi bi-chevron-down cp-nav-chevron"></i>
+      </div>
+      <div class="cp-nav-group" data-nav-group="payroll">
+      {% if role == 'owner' %}
+      <a class="nav-link {% if active=='employees' %}active{% endif %}" href="/payroll/employees">
+        <i class="bi bi-people"></i> پرسنل
+      </a>
+      <a class="nav-link {% if active=='attendance' %}active{% endif %}" href="/payroll/attendance">
+        <i class="bi bi-fingerprint"></i> تردد و حضور
+      </a>
+      {% endif %}
+      <a class="nav-link {% if active=='shifts' %}active{% endif %}" href="/payroll/shifts">
+        <i class="bi bi-calendar-week"></i> برنامهٔ شیفت
+      </a>
+      {% if role == 'owner' %}
+      <a class="nav-link {% if active=='payroll_runs' %}active{% endif %}" href="/payroll/runs">
+        <i class="bi bi-cash-stack"></i> اجرای حقوق
+      </a>
+      <a class="nav-link {% if active=='leave' %}active{% endif %}" href="/payroll/leave">
+        <i class="bi bi-calendar-minus"></i> مرخصی
+      </a>
+      <a class="nav-link {% if active=='commissions' %}active{% endif %}" href="/payroll/commissions">
+        <i class="bi bi-percent"></i> کمیسیون‌های مستقیم
+      </a>
+      <a class="nav-link {% if active=='allowance_rules' %}active{% endif %}" href="/payroll/allowance-rules">
+        <i class="bi bi-sliders"></i> قوانین مزایا
+      </a>
+      <a class="nav-link {% if active=='config' %}active{% endif %}" href="/payroll/config">
+        <i class="bi bi-gear"></i> تنظیمات سیستم
+      </a>
+      {% endif %}
+      </div>
+      {% endif %}
+
+      {% if role in ('owner', 'accountant') %}
+      <div class="cp-nav-section cp-nav-toggle" data-nav-toggle="insurance">
+        <span>بیمه</span><i class="bi bi-chevron-down cp-nav-chevron"></i>
+      </div>
+      <div class="cp-nav-group" data-nav-group="insurance">
+      <a class="nav-link {% if active=='invoices' %}active{% endif %}" href="/insurance/invoices">
+        <i class="bi bi-file-earmark-medical"></i> صورت‌حساب‌ها
+      </a>
+      {% if role == 'owner' %}
+      <a class="nav-link {% if active=='reconciliation' %}active{% endif %}" href="/insurance/reconciliation">
+        <i class="bi bi-shuffle"></i> تطبیق پرداخت‌ها
+      </a>
+      <a class="nav-link {% if active=='companies' %}active{% endif %}" href="/insurance/companies">
+        <i class="bi bi-building"></i> شرکت‌های بیمه
+      </a>
+      <a class="nav-link {% if active=='reports' %}active{% endif %}" href="/insurance/reports">
+        <i class="bi bi-bar-chart"></i> گزارش‌ها
+      </a>
+      {% endif %}
+      </div>
+      {% endif %}
+
+      {% if role in ('owner', 'accountant', 'manager') %}
+      <div class="cp-nav-section cp-nav-toggle" data-nav-toggle="nutrition">
+        <span>بخش تغذیه</span><i class="bi bi-chevron-down cp-nav-chevron"></i>
+      </div>
+      <div class="cp-nav-group" data-nav-group="nutrition">
+      <a class="nav-link {% if active=='nutrition_dashboard' %}active{% endif %}" href="/nutrition">
+        <i class="bi bi-grid-1x2"></i> داشبورد
+      </a>
+      {% if role in ('owner', 'accountant') %}
+      <a class="nav-link {% if active=='nutrition_revenues' %}active{% endif %}" href="/nutrition/revenues">
+        <i class="bi bi-cash-coin"></i> درآمد
+      </a>
+      <a class="nav-link {% if active=='nutrition_expenses' %}active{% endif %}" href="/nutrition/expenses">
+        <i class="bi bi-receipt"></i> هزینه‌ها
+      </a>
+      <a class="nav-link {% if active=='nutrition_settlement' %}active{% endif %}" href="/nutrition/settlement">
+        <i class="bi bi-calculator"></i> تسویه ماهانه
+      </a>
+      <a class="nav-link {% if active=='nutrition_doctors' %}active{% endif %}" href="/nutrition/doctors">
+        <i class="bi bi-person-badge"></i> پزشکان و قرارداد
+      </a>
+      {% endif %}
+      </div>
+      {% endif %}
+
+      {% if role == 'owner' %}
+      <div class="cp-nav-section">مدیریت</div>
+      <a class="nav-link {% if active=='users' %}active{% endif %}" href="/users">
+        <i class="bi bi-person-badge"></i> کاربران و دسترسی‌ها
+      </a>
+      {% endif %}
+    </nav>
+
+    <div class="cp-sidebar-foot">سامانه مدیریت درمانگاه</div>
+  </aside>
+
+  <div class="cp-main">
+    <header class="cp-topbar d-print-none">
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-sm btn-light border d-lg-none" id="cpMenuBtn"><i class="bi bi-list"></i></button>
+        <div class="cp-page-title">{% block page_title %}{{ page_title }}{% endblock %}</div>
+      </div>
+      <div class="cp-user">
+        <div class="text-end d-none d-sm-block">
+          <div style="font-size:.85rem; font-weight:600;">{{ user_name }}</div>
+          <span class="cp-role-badge role-{{ role }}">{{ role_label }}</span>
+        </div>
+        <div class="cp-user-avatar">{{ user_initials }}</div>
+        <a href="/logout" class="btn btn-sm btn-light border" title="خروج"><i class="bi bi-box-arrow-left"></i></a>
+      </div>
+    </header>
+
+    <main class="cp-content">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+
+<script src="/static/vendor/bootstrap.bundle.min.js"></script>
+<script>
+  const btn = document.getElementById('cpMenuBtn');
+  const sidebar = document.getElementById('cpSidebar');
+  const backdrop = document.getElementById('cpBackdrop');
+  function closeSidebar(){ sidebar.classList.remove('cp-open'); backdrop.classList.remove('show'); }
+  if (btn) btn.addEventListener('click', () => { sidebar.classList.toggle('cp-open'); backdrop.classList.toggle('show'); });
+  if (backdrop) backdrop.addEventListener('click', closeSidebar);
+
+  // Collapsible nav sections ("حقوق و دستمزد" / "بیمه") -- state remembered
+  // per browser (localStorage) so it survives normal page-to-page navigation.
+  document.querySelectorAll('.cp-nav-section[data-nav-toggle]').forEach((header) => {
+    const key = header.dataset.navToggle;
+    const group = document.querySelector(`.cp-nav-group[data-nav-group="${key}"]`);
+    if (!group) return;
+    const storageKey = 'cp-nav-collapsed-' + key;
+    const setCollapsed = (collapsed) => {
+      header.classList.toggle('cp-nav-collapsed', collapsed);
+      group.classList.toggle('cp-nav-collapsed', collapsed);
+    };
+    setCollapsed(localStorage.getItem(storageKey) === '1');
+    header.addEventListener('click', () => {
+      const collapsed = !group.classList.contains('cp-nav-collapsed');
+      setCollapsed(collapsed);
+      localStorage.setItem(storageKey, collapsed ? '1' : '0');
+    });
+  });
+</script>
+</body>
+</html>

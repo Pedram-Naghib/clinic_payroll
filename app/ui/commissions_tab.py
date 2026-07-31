@@ -173,8 +173,8 @@ class CommissionsTab(QWidget):
 
     def _update_preview(self):
         service_type = self.service_combo.currentData()
-        fee_toman = self._parse_fee(self.fee_edit.text())
-        if not service_type or fee_toman is None or fee_toman <= 0:
+        fee_rial = self._parse_fee(self.fee_edit.text())
+        if not service_type or fee_rial is None or fee_rial <= 0:
             self.preview_label.setText(S.LBL_COMMISSION_PREVIEW_EMPTY)
             return
         try:
@@ -182,7 +182,6 @@ class CommissionsTab(QWidget):
         except ValueError:
             self.preview_label.setText(S.LBL_COMMISSION_PREVIEW_EMPTY)
             return
-        fee_rial = fee_toman * 10
         amount = compute_commission_amount(fee_rial, rate)
         self.preview_label.setText(S.LBL_COMMISSION_PREVIEW.format(rate=rate, amount=amount))
 
@@ -204,8 +203,8 @@ class CommissionsTab(QWidget):
             QMessageBox.warning(self, S.MSG_NO_EMPLOYEE, S.MSG_SELECT_EMPLOYEE_FIRST)
             return
 
-        fee_toman = self._parse_fee(self.fee_edit.text())
-        if fee_toman is None or fee_toman <= 0:
+        fee_rial = self._parse_fee(self.fee_edit.text())
+        if fee_rial is None or fee_rial <= 0:
             QMessageBox.warning(self, S.MSG_INVALID_FEE, S.MSG_FEE_REQUIRED)
             return
 
@@ -216,7 +215,6 @@ class CommissionsTab(QWidget):
             return
 
         service_type = self.service_combo.currentData()
-        fee_rial = fee_toman * 10
         notes = self.notes_edit.text().strip() or None
 
         add_commission(

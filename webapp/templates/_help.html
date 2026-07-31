@@ -1,0 +1,8 @@
+{% macro help_box() %}
+<details class="cp-help">
+  <summary><i class="bi bi-question-circle"></i> راهنمای استفاده از این صفحه <i class="bi bi-chevron-left cp-help-chevron"></i></summary>
+  <div class="cp-help-body">
+    {{ caller() }}
+  </div>
+</details>
+{% endmacro %}

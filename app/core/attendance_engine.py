@@ -195,13 +195,21 @@ def persist_daily_attendance(
     status is set to 'missing_punch' so the manager sees it -- no further
     action required from them; the employee loses that segment's pay.
 
-    IMPORTANT: first clears every existing daily_attendance row for each
-    processed employee within [period_start, period_end). Previously this
-    only ever upserted -- a date that HAD a session in an earlier run but
-    has none in this one (e.g. after "clear this month's records" + a
-    re-import with fewer/different punches) kept its old row forever, since
-    nothing ever deleted it. That let stale hours from a prior import
-    silently survive a full re-import and bleed into payroll totals.
+    IMPORTANT: first clears every existing device-sourced daily_attendance
+    row for each processed employee within [period_start, period_end).
+    Previously this only ever upserted -- a date that HAD a session in an
+    earlier run but has none in this one (e.g. after "clear this month's
+    records" + a re-import with fewer/different punches) kept its old row
+    forever, since nothing ever deleted it. That let stale hours from a
+    prior import silently survive a full re-import and bleed into payroll
+    totals.
+
+    The delete only targets source='device' rows -- a manually-entered day
+    (see save_manual_attendance, the Owner overriding/filling in a day they
+    don't trust the device for) is never touched by this, UNLESS the device
+    itself now has real punches for that same day, in which case the upsert
+    below reclassifies it back to source='device' (real punch data wins over
+    a manual guess once it actually shows up).
     """
     period_start_d = period_start.date().isoformat()
     period_end_d = period_end.date().isoformat()
@@ -212,7 +220,7 @@ def persist_daily_attendance(
 
         conn.execute(
             """DELETE FROM daily_attendance
-               WHERE employee_id = ? AND work_date >= ? AND work_date < ?""",
+               WHERE employee_id = ? AND work_date >= ? AND work_date < ? AND source = 'device'""",
             (att.employee_id, period_start_d, period_end_d),
         )
 
@@ -232,13 +240,14 @@ def persist_daily_attendance(
             conn.execute(
                 """
                 INSERT INTO daily_attendance
-                    (employee_id, work_date, first_in, last_out, worked_hours, status)
-                VALUES (?, ?, ?, ?, ?, ?)
+                    (employee_id, work_date, first_in, last_out, worked_hours, status, source)
+                VALUES (?, ?, ?, ?, ?, ?, 'device')
                 ON CONFLICT(employee_id, work_date) DO UPDATE SET
                     first_in = excluded.first_in,
                     last_out = excluded.last_out,
                     worked_hours = excluded.worked_hours,
-                    status = excluded.status
+                    status = excluded.status,
+                    source = 'device'
                 """,
                 (
                     att.employee_id,
@@ -250,6 +259,120 @@ def persist_daily_attendance(
                 ),
             )
     conn.commit()
+
+
+# ============================================================
+# Manual attendance entry -- for a month the Owner doesn't trust (or doesn't
+# have) device punch data for. Entered as whole-month totals (e.g. "180
+# hours this month, 10 of them on a holiday"), not day by day -- but still
+# written into daily_attendance as one or two representative rows, since
+# that's what build_payroll_inputs() sums unconditionally (no source/status
+# filter) -- so a manual entry feeds payroll exactly like device data, with
+# no changes needed anywhere else in the pipeline.
+# ============================================================
+
+def _dates_in_range(start_date: str, end_date: str):
+    d = datetime.fromisoformat(start_date)
+    end = datetime.fromisoformat(end_date)
+    while d < end:
+        yield d.date().isoformat()
+        d += timedelta(days=1)
+
+
+def save_manual_month_attendance(
+    conn: sqlite3.Connection,
+    employee_id: int,
+    period_start: str,
+    period_end: str,
+    total_hours: float,
+    holiday_hours: float = 0.0,
+    note: str | None = None,
+) -> None:
+    """period_start/period_end: ISO 'YYYY-MM-DD', period_end exclusive.
+    Replaces any previous manual entries for this employee within the period
+    (re-entering a month overwrites, not adds to, the old figures).
+
+    holiday_hours must land on an actual recorded holiday date so the
+    existing holiday-premium classification in build_payroll_inputs picks it
+    up -- raises ValueError if the period has no holiday on file but
+    holiday_hours > 0 was given."""
+    if holiday_hours < 0 or total_hours < 0:
+        raise ValueError("ساعت کارکرد نمی‌تواند منفی باشد.")
+    if holiday_hours > total_hours:
+        raise ValueError("ساعت تعطیل نمی‌تواند از ساعت کل کارکرد بیشتر باشد.")
+
+    conn.execute(
+        "DELETE FROM daily_attendance WHERE employee_id = ? AND work_date >= ? AND work_date < ? AND source = 'manual'",
+        (employee_id, period_start, period_end),
+    )
+
+    holiday_dates = {
+        row[0] for row in conn.execute(
+            "SELECT work_date FROM iranian_holidays WHERE work_date >= ? AND work_date < ?",
+            (period_start, period_end),
+        )
+    }
+
+    if holiday_hours > 0:
+        if not holiday_dates:
+            raise ValueError("برای این ماه هیچ روز تعطیل رسمی ثبت نشده — نمی‌توان ساعت تعطیل وارد کرد.")
+        holiday_date = min(holiday_dates)
+        conn.execute(
+            """INSERT INTO daily_attendance
+                   (employee_id, work_date, first_in, worked_hours, status, manager_note, source)
+               VALUES (?, ?, ?, ?, 'manual', ?, 'manual')""",
+            (employee_id, holiday_date, f"{holiday_date} 10:00:00", round(holiday_hours, 2), note),
+        )
+
+    regular_hours = total_hours - holiday_hours
+    if regular_hours > 0:
+        regular_date = next(
+            (d for d in _dates_in_range(period_start, period_end) if d not in holiday_dates),
+            period_start,
+        )
+        conn.execute(
+            """INSERT INTO daily_attendance
+                   (employee_id, work_date, worked_hours, status, manager_note, source)
+               VALUES (?, ?, ?, 'manual', ?, 'manual')""",
+            (employee_id, regular_date, round(regular_hours, 2), note),
+        )
+    conn.commit()
+
+
+def delete_manual_month_attendance(conn: sqlite3.Connection, employee_id: int, period_start: str, period_end: str) -> None:
+    """Reverts an employee's manual entries for this month back to blank
+    (not back to device data -- if real punches exist, re-running Compute
+    will restore them)."""
+    conn.execute(
+        "DELETE FROM daily_attendance WHERE employee_id = ? AND work_date >= ? AND work_date < ? AND source = 'manual'",
+        (employee_id, period_start, period_end),
+    )
+    conn.commit()
+
+
+def list_manual_attendance(conn: sqlite3.Connection, start_date: str, end_date: str) -> list[sqlite3.Row]:
+    return conn.execute(
+        """SELECT da.*, e.full_name AS employee_name FROM daily_attendance da
+           JOIN employees e ON e.id = da.employee_id
+           WHERE da.source = 'manual' AND da.work_date >= ? AND da.work_date < ?
+           ORDER BY e.full_name, da.work_date""",
+        (start_date, end_date),
+    ).fetchall()
+
+
+def manual_attendance_month_totals(conn: sqlite3.Connection, start_date: str, end_date: str) -> dict[int, dict]:
+    """{employee_id: {"total_hours": ..., "holiday_hours": ..., "employee_name": ...}}
+    -- collapses the 1-2 representative rows per employee back into the
+    month totals the Owner actually entered, for display."""
+    totals: dict[int, dict] = {}
+    for row in list_manual_attendance(conn, start_date, end_date):
+        bucket = totals.setdefault(
+            row["employee_id"], {"employee_name": row["employee_name"], "total_hours": 0.0, "holiday_hours": 0.0}
+        )
+        bucket["total_hours"] += row["worked_hours"] or 0.0
+        if row["first_in"]:
+            bucket["holiday_hours"] += row["worked_hours"] or 0.0
+    return totals
 
 
 def compute_and_persist_attendance(

@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% from "_help.html" import help_box %}
+{% block content %}
+
+{% call help_box() %}
+<h6>این صفحه چه کاری انجام می‌دهد؟</h6>
+<p>محاسبهٔ نهایی حقوق ماهانهٔ همهٔ کارکنان — حقوق پایه، اضافه‌کاری، اضافه‌پرداخت تعطیل، مزایا، کسر بیمه، کسر کمبود کارکرد و خالص پرداختی.</p>
+<h6>مراحل استفاده</h6>
+<ol>
+  <li>سال و ماه شمسی را انتخاب و «اجرای محاسبه» را بزنید. این کار به‌طور خودکار حضور و غیاب همان ماه را از روی رکوردهای خام دستگاه (و هر حضور دستی ثبت‌شده) بازمحاسبه می‌کند — نیازی نیست قبلش به صفحهٔ «تردد و حضور» بروید.</li>
+  <li>نتیجه را در جدول بررسی کنید. ردیف‌های خاکستری یعنی «حقوق ثابت بدون ثبت تردد» (کسانی که با دستگاه ساعت نمی‌زنند).</li>
+  <li>اگر عددها درست به‌نظر می‌رسند، «ذخیرهٔ این اجرا» را بزنید تا در دیتابیس ثبت دائمی شود و در فیش حقوقی و داشبورد ظاهر شود. تا وقتی ذخیره نکنید، محاسبه فقط پیش‌نمایش است و جایی ثبت نمی‌شود.</li>
+</ol>
+<h6>اجرای دوباره برای یک ماه قبلاً ذخیره‌شده</h6>
+<p>اگر برای همان ماه قبلاً یک اجرا ذخیره شده باشد، سیستم هشدار می‌دهد. ذخیرهٔ دوباره، نتایج قبلی همان ماه را کاملاً <b>جایگزین</b> می‌کند (مثلاً بعد از اصلاح تردد یا افزودن یک مورد فراموش‌شده).</p>
+<h6>فیش حقوقی</h6>
+<p>آیکون <i class="bi bi-receipt"></i> کنار هر ردیف، فیش حقوقی چاپی همان فرد برای همان ماه را باز می‌کند.</p>
+<div class="cp-help-note">اگر شخصی «به دلیل نامشخص بودن شماره دستگاه» از محاسبه حذف شده، باید شمارهٔ دستگاه صحیح او را در صفحهٔ «پرسنل» وارد کنید.</div>
+{% endcall %}
+
+<div class="cp-card p-3 mb-3">
+  <div class="text-muted" style="font-size:.85rem;">
+    ماه شمسی را انتخاب کرده و «اجرای محاسبه» را بزنید. حضور و غیاب برای این بازه به‌صورت خودکار از روی رکوردهای خام دستگاه بازمحاسبه می‌شود.
+    پس از بررسی نتایج، برای ثبت دائمی در دیتابیس روی «ذخیرهٔ این اجرا» کلیک کنید.
+  </div>
+</div>
+
+{% if just_saved %}
+<div class="alert alert-success py-2 mb-3" style="font-size:.85rem;">اجرای حقوق با شناسهٔ #{{ just_saved }} با موفقیت ذخیره شد.</div>
+{% endif %}
+
+{% if existing_run %}
+<div class="alert alert-warning py-2 mb-3" style="font-size:.85rem;">
+  برای {{ jalali_months[sel_month - 1][1] }} {{ sel_year }} قبلاً یک اجرای حقوق ذخیره شده (تاریخ ثبت: {{ existing_run.generated_at }}).
+  ذخیرهٔ مجدد، نتایج قبلی را جایگزین می‌کند.
+  <form action="/payroll/runs/save" method="post" class="d-inline">
+    <input type="hidden" name="year" value="{{ sel_year }}"><input type="hidden" name="month" value="{{ sel_month }}"><input type="hidden" name="confirm" value="1">
+    <button type="submit" class="btn btn-sm btn-warning">بله، جایگزین کن</button>
+  </form>
+</div>
+{% endif %}
+
+{% if role == 'owner' %}
+<div class="cp-card p-3 mb-3">
+  <form action="/payroll/runs/run" method="post" class="d-flex gap-2 align-items-end flex-wrap">
+    <div>
+      <label class="form-label" style="font-size:.8rem;">سال</label>
+      <select name="year" class="form-select form-select-sm">
+        {% for y in year_range %}<option value="{{ y }}" {{ 'selected' if y == sel_year }}>{{ y }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="form-label" style="font-size:.8rem;">ماه</label>
+      <select name="month" class="form-select form-select-sm">
+        {% for i, name in jalali_months %}<option value="{{ i }}" {{ 'selected' if i == sel_month }}>{{ name }}</option>{% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm">اجرای محاسبه</button>
+    {% if results %}
+    <button type="submit" formaction="/payroll/runs/save" class="btn btn-outline-primary btn-sm">ذخیرهٔ این اجرا</button>
+    {% endif %}
+  </form>
+</div>
+{% endif %}
+
+{% if skipped_names %}
+<div class="alert alert-warning py-2 mb-3" style="font-size:.85rem;">
+  {{ skipped_names | length }} کارمند به دلیل نامشخص بودن شماره دستگاه (۰) از این محاسبه حذف شدند: {{ skipped_names | join('، ') }}.
+  برای رفع این مشکل، در صفحهٔ «پرسنل» شماره دستگاه صحیح را وارد کنید.
+</div>
+{% endif %}
+
+{% if results is not none %}
+<div class="cp-card mb-3">
+  <div class="table-responsive">
+    <table class="table cp-table mb-0">
+      <thead><tr>
+        <th>نام</th><th>نوع استخدام</th><th>ساعات عادی</th><th>ساعات اضافه‌کاری</th><th>ساعات تعطیل</th>
+        <th>حقوق پایه</th><th>مزد اضافه‌کاری</th><th>مزد تعطیل‌کاری</th><th>جمع مزایا</th>
+        <th>پوشش از مرخصی (روز)</th><th>کمبود کارکرد</th><th>کسر بیمه</th><th>خالص پرداختی</th><th></th>
+      </tr></thead>
+      <tbody>
+        {% for r in results %}
+        <tr class="{{ 'text-muted' if r.pay_mode == 'fixed_no_clocking' else '' }}">
+          <td class="fw-semibold">{{ r.full_name }}</td>
+          <td>{{ 'بیمه‌شده' if r.employment_type == 'insured' else 'غیر بیمه‌شده' }}</td>
+          <td>{{ "%g"|format(r.regular_hours) }}</td>
+          <td>{{ "%g"|format(r.overtime_hours) }}</td>
+          <td>{{ "%g"|format(r.holiday_hours) }}</td>
+          <td>{{ '{:,}'.format(r.base_pay) }}</td>
+          <td>{{ '{:,}'.format(r.overtime_pay) }}</td>
+          <td>{{ '{:,}'.format(r.holiday_pay) }}</td>
+          <td title="{% for a in r.allowances %}{{ a.label }}: {{ '{:,}'.format(a.amount) }}&#10;{% endfor %}">{{ '{:,}'.format(r.allowances_total) }}</td>
+          <td>{{ "%g"|format(r.leave_days_covered) }}</td>
+          <td>{{ '{:,}'.format(r.under_hours_deduction) }}</td>
+          <td>{{ '{:,}'.format(r.insurance_deduction) }}</td>
+          <td class="fw-bold">{{ '{:,}'.format(r.total_pay) }}</td>
+          <td class="text-end"><a href="/payroll/payslip/{{ r.employee_id }}?year={{ sel_year }}&month={{ sel_month }}" class="btn btn-sm btn-light border"><i class="bi bi-receipt"></i></a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr class="fw-bold">
+          <td colspan="12">جمع کل خالص پرداختی این ماه</td>
+          <td colspan="2">{{ '{:,}'.format(grand_total) }} ریال</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

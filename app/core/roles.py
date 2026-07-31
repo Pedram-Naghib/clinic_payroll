@@ -22,7 +22,7 @@ def list_all_roles(conn: sqlite3.Connection) -> list[str]:
 
 def get_or_create_role(conn: sqlite3.Connection, name: str) -> int:
     name = name.strip()
-    conn.execute("INSERT OR IGNORE INTO roles (name) VALUES (?)", (name,))
+    conn.execute("INSERT INTO roles (name) VALUES (?) ON CONFLICT DO NOTHING", (name,))
     row = conn.execute("SELECT id FROM roles WHERE name = ?", (name,)).fetchone()
     return row["id"]
 
@@ -68,7 +68,7 @@ def set_employee_roles(conn: sqlite3.Connection, employee_id: int, role_names: l
         seen.add(name)
         role_id = get_or_create_role(conn, name)
         conn.execute(
-            "INSERT OR IGNORE INTO employee_roles (employee_id, role_id) VALUES (?, ?)",
+            "INSERT INTO employee_roles (employee_id, role_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
             (employee_id, role_id),
         )
     conn.commit()

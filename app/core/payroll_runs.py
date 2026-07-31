@@ -110,7 +110,7 @@ def save_payroll_run(
         )
         conn.execute(
             """UPDATE payroll_runs
-               SET generated_at = datetime('now'), notes = ?
+               SET generated_at = CURRENT_TIMESTAMP, notes = ?
                WHERE id = ?""",
             (notes, overwrite_run_id),
         )

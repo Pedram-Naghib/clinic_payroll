@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% from "_help.html" import help_box %}
+{% block content %}
+
+{% call help_box() %}
+<p>فیلتر بالا رو خالی بذارید برای جمع کل، یا یه شرکت بیمه رو انتخاب کنید. این صفحه فقط نمایشیه؛ ثبت صورت‌حساب/پرداخت از صفحات «صورت‌حساب‌ها» و «تطبیق پرداخت‌ها».</p>
+{% endcall %}
+
+<div class="cp-card p-3 mb-3">
+  <form action="/insurance/reports" method="get" class="row g-2 align-items-end">
+    <div class="col-md-4">
+      <label class="form-label" style="font-size:.8rem;">شرکت بیمه</label>
+      <select name="company_id" class="form-select form-select-sm" onchange="this.form.submit()">
+        <option value="">همه شرکت‌ها</option>
+        {% for co in companies %}<option value="{{ co.id }}" {{ 'selected' if co.id == sel_company_id }}>{{ co.name }}</option>{% endfor %}
+      </select>
+    </div>
+  </form>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-xl-3">
+    <div class="cp-kpi">
+      <div class="cp-kpi-icon" style="background:#e6f5f4; color:#0b756f;"><i class="bi bi-file-earmark-medical"></i></div>
+      <div><div class="cp-kpi-label">مجموع صورت‌حساب</div><div class="cp-kpi-value">{{ '{:,}'.format(grand_amount) }}</div></div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="cp-kpi">
+      <div class="cp-kpi-icon" style="background:#e3f6e8; color:#1c7a3c;"><i class="bi bi-cash"></i></div>
+      <div><div class="cp-kpi-label">مجموع پرداختی</div><div class="cp-kpi-value">{{ '{:,}'.format(grand_paid) }}</div></div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="cp-kpi">
+      <div class="cp-kpi-icon" style="background:#fbe4e4; color:#a3272c;"><i class="bi bi-graph-down-arrow"></i></div>
+      <div><div class="cp-kpi-label">مجموع کسورات</div><div class="cp-kpi-value">{{ '{:,}'.format(grand_deduction) }}</div></div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="cp-kpi">
+      <div class="cp-kpi-icon" style="background:#fdf1d6; color:#8a5a00;"><i class="bi bi-percent"></i></div>
+      <div><div class="cp-kpi-label">نرخ کسورات</div><div class="cp-kpi-value">{{ grand_rate }}%</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="cp-card p-3">
+  <div class="cp-section-title mb-3">کسورات به تفکیک شرکت بیمه</div>
+  <div class="table-responsive">
+    <table class="table cp-table mb-0">
+      <thead><tr>
+        <th>شرکت بیمه</th><th>مجموع صورت‌حساب</th><th>مجموع پرداختی</th><th>کسورات بیمه</th><th>مانده</th><th>نرخ کسورات</th>
+      </tr></thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td class="fw-semibold">{{ r.company_name }}</td>
+          <td>{{ '{:,}'.format(r.total_amount) }}</td>
+          <td>{{ '{:,}'.format(r.total_paid) }}</td>
+          <td>{{ '{:,}'.format(r.deduction) }}</td>
+          <td>{{ '{:,}'.format(r.outstanding) }}</td>
+          <td>{{ r.rate }}%</td>
+        </tr>
+        {% endfor %}
+        {% if not rows %}
+        <tr><td colspan="6" class="text-muted text-center py-4">داده‌ای برای نمایش وجود ندارد.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="cp-card p-3 mt-3">
+  <div class="cp-section-title mb-3">کسورات به تفکیک بخش</div>
+  <div class="table-responsive">
+    <table class="table cp-table mb-0">
+      <thead><tr>
+        <th>بخش</th><th>مجموع صورت‌حساب</th><th>مجموع پرداختی</th><th>کسورات بیمه</th><th>مانده</th><th>نرخ کسورات</th>
+      </tr></thead>
+      <tbody>
+        {% for d in department_rows %}
+        <tr>
+          <td class="fw-semibold">{{ d.label }}</td>
+          <td>{{ '{:,}'.format(d.total_amount) }}</td>
+          <td>{{ '{:,}'.format(d.total_paid) }}</td>
+          <td>{{ '{:,}'.format(d.deduction) }}</td>
+          <td>{{ '{:,}'.format(d.outstanding) }}</td>
+          <td>{{ d.rate }}%</td>
+        </tr>
+        {% endfor %}
+        {% if not department_rows %}
+        <tr><td colspan="6" class="text-muted text-center py-4">داده‌ای برای نمایش وجود ندارد.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

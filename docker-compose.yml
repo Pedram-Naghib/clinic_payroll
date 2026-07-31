@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-clinic_payroll}
+      POSTGRES_USER: ${POSTGRES_USER:-clinic}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpassword}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-clinic} -d ${POSTGRES_DB:-clinic_payroll}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-clinic}:${POSTGRES_PASSWORD:-devpassword}@db:5432/${POSTGRES_DB:-clinic_payroll}
+      SESSION_SECRET: ${SESSION_SECRET:-dev-only-change-me}
+    ports:
+      # host 3000 -> container 8000. Not 8000:8000 -- Windows reserves
+      # 7931-8630 for WSL2/Hyper-V dynamic ports, which blocks Docker from
+      # binding the host side of that range.
+      - "3000:8000"
+    volumes:
+      - ./app:/srv/app
+      - ./webapp:/srv/webapp
+    command: uvicorn webapp.main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  pgdata:

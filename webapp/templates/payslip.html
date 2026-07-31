@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <a href="/payroll/runs" class="btn btn-sm btn-light border"><i class="bi bi-arrow-right"></i> بازگشت به اجرای حقوق</a>
+  <div class="d-flex gap-2">
+    <button class="btn btn-sm btn-light border"><i class="bi bi-printer"></i> چاپ</button>
+    <button class="btn btn-sm btn-primary"><i class="bi bi-file-earmark-pdf"></i> دانلود PDF</button>
+  </div>
+</div>
+
+<div class="cp-card p-4 mx-auto" style="max-width:620px; background:#fff;">
+
+  <div class="d-flex align-items-center justify-content-between border-bottom pb-3 mb-3">
+    <img src="/static/img/clinic_logo.png" style="width:42px; height:42px; border-radius:8px;" alt="">
+    <div class="text-center">
+      <div class="fw-bold">درمانگاه شبانه‌روزی رجائی‌شهر</div>
+      <div class="text-muted" style="font-size:.78rem;">فیش حقوقی پرسنل</div>
+    </div>
+    <div class="text-muted text-end" style="font-size:.72rem;" dir="ltr">{{ today_jalali }}</div>
+  </div>
+
+  <div class="cp-card mb-3 overflow-hidden">
+    <table class="table table-bordered mb-0" style="font-size:.85rem;">
+      <tr>
+        <td class="bg-light fw-semibold" style="width:22%;">نام و نام خانوادگی</td>
+        <td style="width:28%;">{{ payslip.full_name }}</td>
+        <td class="bg-light fw-semibold" style="width:22%;">کد پرسنلی</td>
+        <td dir="ltr">{{ payslip.personnel_code }}</td>
+      </tr>
+      <tr>
+        <td class="bg-light fw-semibold">نوع استخدام</td>
+        <td>{{ employment_type_label }}</td>
+        <td class="bg-light fw-semibold">دوره</td>
+        <td>{{ payslip.period_label }}</td>
+      </tr>
+      <tr>
+        <td class="bg-light fw-semibold">ساعات عادی</td>
+        <td dir="ltr">{{ "%g"|format(payslip.regular_hours) }}</td>
+        <td class="bg-light fw-semibold">ساعات اضافه‌کاری</td>
+        <td dir="ltr">{{ "%g"|format(payslip.overtime_hours) }}</td>
+      </tr>
+      <tr>
+        <td class="bg-light fw-semibold">ساعات تعطیل‌کاری</td>
+        <td dir="ltr">{{ "%g"|format(payslip.holiday_hours) }}</td>
+        <td></td><td></td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="row g-0 mb-3">
+    <div class="col-6">
+      <div class="border" style="font-size:.85rem;">
+        <div class="p-2 fw-semibold" style="background:#dce7f2;">حقوق و مزایا</div>
+        {% for line in payslip.earnings + payslip.allowances %}
+        <div class="d-flex justify-content-between px-2 py-1 border-top">
+          <span>{{ line.label }}</span><span dir="ltr">{{ '{:,}'.format(line.amount) }}</span>
+        </div>
+        {% endfor %}
+        <div class="d-flex justify-content-between px-2 py-2 border-top fw-bold" style="background:#eef4fa;">
+          <span>جمع حقوق و مزایا</span><span dir="ltr">{{ '{:,}'.format(payslip.gross_pay) }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="col-6">
+      <div class="border border-start-0" style="font-size:.85rem;">
+        <div class="p-2 fw-semibold" style="background:#f3dbdb;">کسورات</div>
+        {% for line in payslip.deductions %}
+        <div class="d-flex justify-content-between px-2 py-1 border-top">
+          <span>{{ line.label }}</span><span dir="ltr">{{ '{:,}'.format(line.amount) }}</span>
+        </div>
+        {% endfor %}
+        <div class="d-flex justify-content-between px-2 py-2 border-top fw-bold" style="background:#faeeee;">
+          <span>جمع کسورات</span><span dir="ltr">{{ '{:,}'.format(payslip.total_deductions) }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if payslip.leave_days_covered or payslip.uncovered_shortfall_hours or payslip.explicit_leave_days_taken %}
+  <div class="border mb-3" style="font-size:.82rem;">
+    <div class="p-2 fw-semibold" style="background:#f0f0f0;">مرخصی و کمبود کارکرد</div>
+    {% if payslip.leave_days_covered %}
+    <div class="d-flex justify-content-between px-2 py-1 border-top">
+      <span>پوشش کسری کارکرد از موجودی مرخصی</span><span dir="ltr">{{ "%g"|format(payslip.leave_days_covered) }} روز</span>
+    </div>
+    {% endif %}
+    {% if payslip.uncovered_shortfall_hours %}
+    <div class="d-flex justify-content-between px-2 py-1 border-top">
+      <span>کمبود کارکرد پوشش‌داده‌نشده (کسر از حقوق)</span><span dir="ltr">{{ "%g"|format(payslip.uncovered_shortfall_hours) }} ساعت</span>
+    </div>
+    {% endif %}
+    {% if payslip.explicit_leave_days_taken %}
+    <div class="d-flex justify-content-between px-2 py-1 border-top">
+      <span>مرخصی صریح استفاده‌شده در این دوره</span><span dir="ltr">{{ "%g"|format(payslip.explicit_leave_days_taken) }} روز</span>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="border" style="border-width:2px !important;">
+    <div class="d-flex justify-content-between px-3 py-2" style="font-size:1.05rem;">
+      <span class="fw-bold">خالص پرداختی</span>
+      <span class="fw-bold" dir="ltr">{{ '{:,}'.format(payslip.net_pay) }} ریال</span>
+    </div>
+    <div class="px-3 py-2 border-top text-muted" style="font-size:.78rem;">{{ words }}</div>
+  </div>
+
+  <div class="d-flex justify-content-between mt-5 text-muted" style="font-size:.75rem;">
+    <span>امضا و اثر انگشت دریافت‌کننده: .......................................</span>
+    <span dir="ltr">امضا و مهر واحد مالی: .......................................</span>
+  </div>
+</div>
+
+{% endblock %}
