@@ -5,6 +5,7 @@
 {% call help_box() %}
 <p>محاسبه به‌صورت زنده از روی درآمد و هزینه‌های ثبت‌شدهٔ همان ماه انجام می‌شود — نیازی به ورود دستی اعداد نیست.</p>
 <p>«ذخیرهٔ تسویه» یک رکورد دائمی از این ماه می‌سازد (برای گزارش‌گیری بعدی). ذخیرهٔ دوباره برای همان ماه، رکورد قبلی را جایگزین می‌کند.</p>
+<p><b>تعدیل نقدی شریک:</b> فرمول همیشه فرض می‌کند هزینه‌ها از جیب کلینیک (محل درآمد) پرداخت شده. اگر یک ماه استثنائاً هزینه‌ها را خودِ شریک از جیب خودش پرداخت کرده، آن مبلغ را اینجا وارد کنید تا به سهم شریک اضافه شود — فرمول اصلی دست‌نخورده می‌ماند، فقط مبلغ نهایی قابل‌تحویل تصحیح می‌شود.</p>
 {% endcall %}
 
 <div class="cp-card p-3 mb-3 d-print-none">
@@ -36,13 +37,29 @@
     {% if already_saved %}<span class="cp-status ok">ذخیره شده</span>{% else %}<span class="cp-status muted">ذخیره نشده</span>{% endif %}
   </div>
   <div class="d-flex gap-2">
-    <form action="/nutrition/settlement/save" method="post" class="d-inline">
-      <input type="hidden" name="year" value="{{ sel_year }}"><input type="hidden" name="month" value="{{ sel_month }}">
-      <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-save"></i> ذخیرهٔ تسویه</button>
-    </form>
     <a href="/nutrition/settlement/export.csv?year={{ sel_year }}&month={{ sel_month }}" class="btn btn-sm btn-light border"><i class="bi bi-file-earmark-excel"></i> خروجی اکسل (CSV)</a>
+    <a href="/nutrition/settlement/invoice?year={{ sel_year }}&month={{ sel_month }}" class="btn btn-sm btn-light border"><i class="bi bi-receipt-cutoff"></i> فاکتور تحویل به شریک</a>
     <button type="button" class="btn btn-sm btn-light border" onclick="window.print()"><i class="bi bi-printer"></i> چاپ / PDF</button>
   </div>
+</div>
+
+<div class="cp-card p-3 mb-3 d-print-none">
+  <div class="cp-section-title">ذخیرهٔ تسویه {% if already_saved %}<span class="cp-status ok">ذخیره شده</span>{% else %}<span class="cp-status muted">ذخیره نشده</span>{% endif %}</div>
+  <form action="/nutrition/settlement/save" method="post" class="row g-3 align-items-end">
+    <input type="hidden" name="year" value="{{ sel_year }}"><input type="hidden" name="month" value="{{ sel_month }}">
+    <div class="col-md-3">
+      <label class="form-label" style="font-size:.82rem;">تعدیل نقدی شریک (ریال، اختیاری)</label>
+      <input type="text" name="adjustment_amount" class="form-control" inputmode="numeric" value="{{ existing_adjustment_amount }}">
+      <div class="form-text" style="font-size:.72rem;">اگر شریک همهٔ هزینه‌های این ماه را خودش پرداخته: {{ '{:,}'.format(breakdown.consumable_expenses + breakdown.non_consumable_expenses) }}</div>
+    </div>
+    <div class="col-md-5">
+      <label class="form-label" style="font-size:.82rem;">توضیح تعدیل (اختیاری)</label>
+      <input type="text" name="adjustment_note" class="form-control" value="{{ existing_adjustment_note }}" placeholder="مثلا: هزینه‌های این ماه توسط شریک پرداخت شد">
+    </div>
+    <div class="col-md-2">
+      <button type="submit" class="btn btn-sm btn-primary w-100"><i class="bi bi-save"></i> ذخیرهٔ تسویه</button>
+    </div>
+  </form>
 </div>
 
 <div class="cp-card p-4">
@@ -51,13 +68,22 @@
     <div class="text-muted" style="font-size:.8rem;">پزشک: {{ active_doctor.full_name }} · سهم پزشک {{ breakdown.doctor_pct }}% / کلینیک {{ breakdown.clinic_pct }}% / شریک {{ breakdown.partner_pct }}%</div>
   </div>
 
+  {% if breakdown.is_partner_self %}
+  <div class="alert alert-info py-2 mb-3" style="font-size:.82rem;">
+    اپراتور فعال این ماه، خودِ شریک بخش تغذیه است — چون طرف سومی (پزشک مستقل) درگیر نیست، سهم پزشک محاسبه نمی‌شود و کل باقیمانده بین کلینیک و شریک تقسیم می‌شود.
+  </div>
+  {% endif %}
   <table class="table table-borderless mb-0" style="font-size:.9rem;">
     <tr><td style="width:60%;">درآمد ناخالص بخش تغذیه</td><td class="text-end fw-semibold" dir="ltr">{{ '{:,}'.format(breakdown.gross_revenue) }}</td></tr>
     <tr><td>هزینه‌های مصرفی (کل)</td><td class="text-end" dir="ltr">{{ '{:,}'.format(breakdown.consumable_expenses) }}</td></tr>
+    {% if not breakdown.is_partner_self %}
     <tr><td class="text-muted ps-4">— سهم پزشک از هزینهٔ مصرفی ({{ breakdown.doctor_pct }}%)</td><td class="text-end text-muted" dir="ltr">− {{ '{:,}'.format(breakdown.doctor_consumable_cut) }}</td></tr>
     <tr><td class="text-muted ps-4">— سهم کلینیک/شریک از هزینهٔ مصرفی</td><td class="text-end text-muted" dir="ltr">− {{ '{:,}'.format(breakdown.other_consumable_cut) }}</td></tr>
+    {% endif %}
     <tr><td>هزینه‌های غیرمصرفی (فقط کسر از کلینیک/شریک)</td><td class="text-end" dir="ltr">− {{ '{:,}'.format(breakdown.non_consumable_expenses) }}</td></tr>
+    {% if not breakdown.is_partner_self %}
     <tr class="border-top"><td class="fw-bold pt-2">سهم پزشک</td><td class="text-end fw-bold pt-2" dir="ltr">{{ '{:,}'.format(breakdown.doctor_share) }}</td></tr>
+    {% endif %}
     <tr><td class="fw-bold">باقیماندهٔ قابل تقسیم بین کلینیک و شریک</td><td class="text-end fw-bold" dir="ltr">{{ '{:,}'.format(breakdown.remaining) }}</td></tr>
   </table>
 

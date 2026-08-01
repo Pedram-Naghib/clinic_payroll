@@ -31,7 +31,7 @@
       <input type="text" name="amount" class="form-control" inputmode="numeric" required>
     </div>
     <div class="col-md-2">
-      <label class="form-label" style="font-size:.82rem;">پزشک</label>
+      <label class="form-label" style="font-size:.82rem;">اپراتور</label>
       <select name="doctor_id" class="form-select" required>
         {% for d in doctors %}<option value="{{ d.id }}" {{ 'selected' if d.active }}>{{ d.full_name }}</option>{% endfor %}
       </select>
@@ -46,7 +46,7 @@
   <div class="table-responsive">
     <table class="table cp-table mb-0">
       <thead><tr>
-        <th>تاریخ</th><th>بیمار</th><th>نوع خدمت</th><th>پزشک</th><th>مبلغ</th><th></th>
+        <th>تاریخ</th><th>بیمار</th><th>نوع خدمت</th><th>اپراتور</th><th>مبلغ</th><th></th>
       </tr></thead>
       <tbody>
         {% for r in revenues %}
@@ -84,7 +84,7 @@
                   <input type="text" name="amount" class="form-control" value="{{ r.amount }}" required>
                 </div>
                 <div class="col-md-2">
-                  <label class="form-label" style="font-size:.82rem;">پزشک</label>
+                  <label class="form-label" style="font-size:.82rem;">اپراتور</label>
                   <select name="doctor_id" class="form-select" required>
                     {% for d in doctors %}<option value="{{ d.id }}" {{ 'selected' if d.id == r.doctor_id }}>{{ d.full_name }}</option>{% endfor %}
                   </select>

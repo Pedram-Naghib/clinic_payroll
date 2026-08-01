@@ -51,6 +51,14 @@
         <label class="form-label" style="font-size:.82rem;">سهم شریک بخش تغذیه از باقیمانده (%)</label>
         <input type="number" name="partner_percentage" class="form-control" value="50" min="0" max="100" required>
       </div>
+      <div class="col-md-6 d-flex align-items-center pb-1">
+        <div class="form-check">
+          <input type="checkbox" class="form-check-input" id="cpIsPartnerSelf" name="is_partner_self" value="1">
+          <label class="form-check-label" style="font-size:.82rem;" for="cpIsPartnerSelf">
+            این اپراتور، خودِ شریک بخش تغذیه است — درآمدش بدون کسر سهم پزشک محاسبه شود
+          </label>
+        </div>
+      </div>
 
       <div class="col-12">
         <label class="form-label" style="font-size:.82rem;">توضیحات قرارداد (اختیاری)</label>
@@ -82,7 +90,7 @@
       <tbody>
         {% for d in doctors %}
         <tr>
-          <td class="fw-semibold">{{ d.full_name }}</td>
+          <td class="fw-semibold">{{ d.full_name }}{% if d.is_partner_self %} <span class="cp-status muted">شریک</span>{% endif %}</td>
           <td dir="ltr">{{ d.phone or '—' }}</td>
           <td>{{ d.contract_start | jalali if d.contract_start else '—' }} تا {{ d.contract_end | jalali if d.contract_end else '—' }}</td>
           <td>{{ d.doctor_percentage }}% / {{ d.clinic_percentage }}% / {{ d.partner_percentage }}%</td>
@@ -133,6 +141,14 @@
                 <div class="col-md-4">
                   <label class="form-label" style="font-size:.82rem;">سهم شریک بخش تغذیه از باقیمانده (%)</label>
                   <input type="number" name="partner_percentage" class="form-control" value="{{ d.partner_percentage }}" min="0" max="100" required>
+                </div>
+                <div class="col-md-6 d-flex align-items-center pb-1">
+                  <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="cpIsPartnerSelf{{ d.id }}" name="is_partner_self" value="1" {{ 'checked' if d.is_partner_self }}>
+                    <label class="form-check-label" style="font-size:.82rem;" for="cpIsPartnerSelf{{ d.id }}">
+                      این اپراتور، خودِ شریک بخش تغذیه است — درآمدش بدون کسر سهم پزشک محاسبه شود
+                    </label>
+                  </div>
                 </div>
 
                 <div class="col-12">

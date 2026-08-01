@@ -7,11 +7,12 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse, StreamingResponse
 
 from app.core.jalali import parse_jalali_str
+from app.core.num2fa import amount_in_words_rials
 from app.core.nutrition import (
     ContractInput, DoctorInput, EXPENSE_TYPES, ExpenseInput, RevenueInput,
     add_doctor, add_expense, add_revenue, compute_settlement_for_period,
     delete_expense, delete_revenue, find_existing_settlement, get_active_doctor,
-    get_doctor, get_expense, get_revenue, list_doctors, list_expenses,
+    get_doctor, get_expense, get_partner_doctor, get_revenue, list_doctors, list_expenses,
     list_revenues, list_settlements, save_settlement, set_doctor_active,
     update_contract, update_doctor, update_expense, update_revenue,
 )
@@ -31,6 +32,13 @@ def _parse_amount(text: str) -> int:
     if val < 0:
         raise HTTPException(400, "مبلغ نمی‌تواند منفی باشد.")
     return val
+
+
+def _parse_signed_amount(text: str) -> int:
+    try:
+        return int(text.strip().replace(",", ""))
+    except ValueError:
+        raise HTTPException(400, "مبلغ تعدیل نامعتبر است.")
 
 
 def _parse_date(text: str) -> str:
@@ -95,7 +103,7 @@ def doctors_new(
     full_name: str = Form(...), phone: str = Form(""),
     contract_start: str = Form(""), contract_end: str = Form(""), notes: str = Form(""),
     doctor_percentage: int = Form(50), clinic_percentage: int = Form(50), partner_percentage: int = Form(50),
-    contract_notes: str = Form(""),
+    contract_notes: str = Form(""), is_partner_self: str | None = Form(None),
 ):
     full_name = full_name.strip()
     if not full_name:
@@ -109,7 +117,7 @@ def doctors_new(
                 full_name=full_name, phone=phone.strip() or None,
                 contract_start=_parse_date(contract_start) if contract_start.strip() else None,
                 contract_end=_parse_date(contract_end) if contract_end.strip() else None,
-                notes=notes.strip() or None,
+                notes=notes.strip() or None, is_partner_self=bool(is_partner_self),
             ),
             ContractInput(
                 doctor_percentage=doctor_percentage, clinic_percentage=clinic_percentage,
@@ -130,7 +138,7 @@ def doctors_edit(
     full_name: str = Form(...), phone: str = Form(""),
     contract_start: str = Form(""), contract_end: str = Form(""), notes: str = Form(""),
     doctor_percentage: int = Form(50), clinic_percentage: int = Form(50), partner_percentage: int = Form(50),
-    contract_notes: str = Form(""),
+    contract_notes: str = Form(""), is_partner_self: str | None = Form(None),
 ):
     full_name = full_name.strip()
     if not full_name:
@@ -144,7 +152,7 @@ def doctors_edit(
             full_name=full_name, phone=phone.strip() or None,
             contract_start=_parse_date(contract_start) if contract_start.strip() else None,
             contract_end=_parse_date(contract_end) if contract_end.strip() else None,
-            notes=notes.strip() or None,
+            notes=notes.strip() or None, is_partner_self=bool(is_partner_self),
         ))
         update_contract(conn, doctor_id, ContractInput(
             doctor_percentage=doctor_percentage, clinic_percentage=clinic_percentage,
@@ -344,6 +352,8 @@ def _settlement_ctx(request: Request, user: CurrentUser, conn, year: int, month:
         "month_label": PERSIAN_MONTHS[month - 1],
         "active_doctor": active_doctor, "breakdown": breakdown,
         "already_saved": existing is not None,
+        "existing_adjustment_amount": existing["adjustment_amount"] if existing else 0,
+        "existing_adjustment_note": existing["adjustment_note"] if existing else "",
         "past_settlements": list_settlements(conn),
     })
     return c
@@ -361,15 +371,22 @@ def settlement_page(request: Request, user: CurrentUser = Depends(require_role("
 
 
 @router.post("/nutrition/settlement/save")
-def settlement_save(user: CurrentUser = Depends(require_role("owner", "accountant")), year: int = Form(...), month: int = Form(...)):
+def settlement_save(
+    user: CurrentUser = Depends(require_role("owner", "accountant")), year: int = Form(...), month: int = Form(...),
+    adjustment_amount: str = Form("0"), adjustment_note: str = Form(""),
+):
     period_start, period_end = _jalali_period(year, month)
+    adjustment_val = _parse_signed_amount(adjustment_amount) if adjustment_amount.strip() else 0
     conn = get_connection()
     try:
         active_doctor = get_active_doctor(conn)
         if active_doctor is None:
             raise HTTPException(400, "هیچ پزشک فعالی برای بخش تغذیه ثبت نشده است.")
         breakdown = compute_settlement_for_period(conn, period_start.date().isoformat(), period_end.date().isoformat(), active_doctor["id"])
-        save_settlement(conn, period_start.date().isoformat(), period_end.date().isoformat(), breakdown, user.id)
+        save_settlement(
+            conn, period_start.date().isoformat(), period_end.date().isoformat(), breakdown, user.id,
+            adjustment_amount=adjustment_val, adjustment_note=adjustment_note.strip() or None,
+        )
     finally:
         conn.close()
     return RedirectResponse(url=f"/nutrition/settlement?year={year}&month={month}", status_code=303)
@@ -409,3 +426,36 @@ def settlement_export_csv(user: CurrentUser = Depends(require_role("owner", "acc
         iter([buf.getvalue()]), media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
+
+@router.get("/nutrition/settlement/invoice")
+def settlement_invoice(request: Request, user: CurrentUser = Depends(require_role("owner", "accountant")), year: int | None = None, month: int | None = None):
+    """Formal, printable settlement invoice to hand over to the nutrition
+    partner -- separate from the internal breakdown on the settlement page."""
+    sel_year, sel_month = (year, month) if (year and month) else _default_period()
+    period_start, period_end = _jalali_period(sel_year, sel_month)
+    period_start_iso, period_end_iso = period_start.date().isoformat(), period_end.date().isoformat()
+    conn = get_connection()
+    try:
+        active_doctor = get_active_doctor(conn)
+        if active_doctor is None:
+            raise HTTPException(400, "هیچ پزشک فعالی برای بخش تغذیه ثبت نشده است.")
+        breakdown = compute_settlement_for_period(conn, period_start_iso, period_end_iso, active_doctor["id"])
+        existing = find_existing_settlement(conn, period_start_iso, period_end_iso)
+        partner_doctor = get_partner_doctor(conn)
+    finally:
+        conn.close()
+
+    adjustment_amount = existing["adjustment_amount"] if existing else 0
+    adjustment_note = existing["adjustment_note"] if existing else None
+    payable = breakdown["partner_share"] + adjustment_amount
+
+    c = ctx(request, "nutrition_settlement", "فاکتور تسویه — شریک بخش تغذیه", user)
+    c.update({
+        "sel_year": sel_year, "sel_month": sel_month, "month_label": PERSIAN_MONTHS[sel_month - 1],
+        "breakdown": breakdown, "adjustment_amount": adjustment_amount, "adjustment_note": adjustment_note,
+        "partner_name": partner_doctor["full_name"] if partner_doctor else "شریک بخش تغذیه",
+        "payable": payable, "payable_words": amount_in_words_rials(payable),
+        "already_saved": existing is not None,
+    })
+    return templates.TemplateResponse(request, "nutrition_settlement_invoice.html", c)
