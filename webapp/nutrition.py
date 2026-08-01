@@ -429,9 +429,16 @@ def settlement_export_csv(user: CurrentUser = Depends(require_role("owner", "acc
 
 
 @router.get("/nutrition/settlement/invoice")
-def settlement_invoice(request: Request, user: CurrentUser = Depends(require_role("owner", "accountant")), year: int | None = None, month: int | None = None):
-    """Formal, printable settlement invoice to hand over to the nutrition
-    partner -- separate from the internal breakdown on the settlement page."""
+def settlement_invoice(
+    request: Request, user: CurrentUser = Depends(require_role("owner", "accountant")),
+    year: int | None = None, month: int | None = None, party: str = "partner",
+):
+    """Formal, printable settlement invoice -- full calculation, every step
+    shown, for either party (partner: handed over to her; clinic: the
+    clinic's own retained-share record). Separate from the compact internal
+    breakdown on the settlement page."""
+    if party not in ("partner", "clinic"):
+        raise HTTPException(400, "party باید partner یا clinic باشد.")
     sel_year, sel_month = (year, month) if (year and month) else _default_period()
     period_start, period_end = _jalali_period(sel_year, sel_month)
     period_start_iso, period_end_iso = period_start.date().isoformat(), period_end.date().isoformat()
@@ -448,12 +455,16 @@ def settlement_invoice(request: Request, user: CurrentUser = Depends(require_rol
 
     adjustment_amount = existing["adjustment_amount"] if existing else 0
     adjustment_note = existing["adjustment_note"] if existing else None
-    payable = breakdown["partner_share"] + adjustment_amount
+    # The adjustment only ever corrects the partner's cash handover (see the
+    # adjustment_amount docstring in save_settlement) -- the clinic's own
+    # retained share is always exactly the formula's clinic_share.
+    payable = breakdown["partner_share"] + adjustment_amount if party == "partner" else breakdown["clinic_share"]
 
-    c = ctx(request, "nutrition_settlement", "فاکتور تسویه — شریک بخش تغذیه", user)
+    title = "فاکتور تسویه — شریک بخش تغذیه" if party == "partner" else "فاکتور تسویه — سهم کلینیک"
+    c = ctx(request, "nutrition_settlement", title, user)
     c.update({
         "sel_year": sel_year, "sel_month": sel_month, "month_label": PERSIAN_MONTHS[sel_month - 1],
-        "breakdown": breakdown, "adjustment_amount": adjustment_amount, "adjustment_note": adjustment_note,
+        "party": party, "breakdown": breakdown, "adjustment_amount": adjustment_amount, "adjustment_note": adjustment_note,
         "partner_name": partner_doctor["full_name"] if partner_doctor else "شریک بخش تغذیه",
         "payable": payable, "payable_words": amount_in_words_rials(payable),
         "already_saved": existing is not None,

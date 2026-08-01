@@ -3,7 +3,14 @@
 
 <div class="d-flex justify-content-between align-items-center mb-3 d-print-none">
   <a href="/nutrition/settlement?year={{ sel_year }}&month={{ sel_month }}" class="btn btn-sm btn-light border"><i class="bi bi-arrow-right"></i> بازگشت به تسویه</a>
-  <button type="button" class="btn btn-sm btn-primary" onclick="window.print()"><i class="bi bi-printer"></i> چاپ / PDF</button>
+  <div class="d-flex gap-2">
+    {% if party == 'partner' %}
+    <a href="/nutrition/settlement/invoice?year={{ sel_year }}&month={{ sel_month }}&party=clinic" class="btn btn-sm btn-light border">مشاهدهٔ فاکتور سهم کلینیک</a>
+    {% else %}
+    <a href="/nutrition/settlement/invoice?year={{ sel_year }}&month={{ sel_month }}&party=partner" class="btn btn-sm btn-light border">مشاهدهٔ فاکتور شریک</a>
+    {% endif %}
+    <button type="button" class="btn btn-sm btn-primary" onclick="window.print()"><i class="bi bi-printer"></i> چاپ / PDF</button>
+  </div>
 </div>
 
 {% if not already_saved %}
@@ -12,13 +19,15 @@
 </div>
 {% endif %}
 
-<div class="cp-card p-4 mx-auto" style="max-width:620px; background:#fff;">
+<div class="cp-card p-4 mx-auto" style="max-width:680px; background:#fff;">
 
   <div class="d-flex align-items-center justify-content-between border-bottom pb-3 mb-3">
     <img src="/static/img/clinic_logo.png" style="width:42px; height:42px; border-radius:8px;" alt="">
     <div class="text-center">
       <div class="fw-bold">درمانگاه شبانه‌روزی رجائی‌شهر</div>
-      <div class="text-muted" style="font-size:.78rem;">فاکتور تسویه ماهانه — بخش تغذیه و لاغری</div>
+      <div class="text-muted" style="font-size:.78rem;">
+        {% if party == 'partner' %}فاکتور تسویه ماهانه — تحویل به شریک بخش تغذیه{% else %}فاکتور تسویه ماهانه — سهم کلینیک از بخش تغذیه{% endif %}
+      </div>
     </div>
     <div class="text-muted text-end" style="font-size:.72rem;" dir="ltr">{{ month_label }} {{ sel_year }}</div>
   </div>
@@ -26,36 +35,90 @@
   <div class="cp-card mb-3 overflow-hidden">
     <table class="table table-bordered mb-0" style="font-size:.85rem;">
       <tr>
-        <td class="bg-light fw-semibold" style="width:30%;">تحویل به</td>
-        <td>{{ partner_name }}</td>
+        <td class="bg-light fw-semibold" style="width:30%;">{% if party == 'partner' %}تحویل به{% else %}مربوط به{% endif %}</td>
+        <td>{% if party == 'partner' %}{{ partner_name }}{% else %}کلینیک — درمانگاه شبانه‌روزی رجائی‌شهر{% endif %}</td>
       </tr>
       <tr>
         <td class="bg-light fw-semibold">دوره</td>
         <td>{{ month_label }} {{ sel_year }}</td>
       </tr>
+      <tr>
+        <td class="bg-light fw-semibold">اپراتور فعال این دوره</td>
+        <td>{{ breakdown.doctor_name }}{% if breakdown.is_partner_self %} (شریک بخش تغذیه — بدون پزشک ثالث){% endif %}</td>
+      </tr>
     </table>
   </div>
 
-  <div class="border" style="font-size:.85rem;">
-    <div class="p-2 fw-semibold" style="background:#eef4fa;">اجزای محاسبه</div>
+  <div class="border mb-3" style="font-size:.85rem;">
+    <div class="p-2 fw-semibold" style="background:#eef4fa;">شرح کامل محاسبه — گام به گام</div>
+
     <div class="d-flex justify-content-between px-2 py-1 border-top">
-      <span>سهم شریک از باقیماندهٔ ماه ({{ breakdown.partner_pct }}%)</span><span dir="ltr">{{ '{:,}'.format(breakdown.partner_share) }}</span>
+      <span>۱) درآمد ناخالص بخش تغذیه این دوره</span><span dir="ltr">{{ '{:,}'.format(breakdown.gross_revenue) }}</span>
     </div>
-    {% if adjustment_amount %}
     <div class="d-flex justify-content-between px-2 py-1 border-top">
-      <span>تعدیل نقدی این ماه{% if adjustment_note %} ({{ adjustment_note }}){% endif %}</span><span dir="ltr">{{ '{:,}'.format(adjustment_amount) }}</span>
+      <span>۲) جمع هزینه‌های مصرفی این دوره</span><span dir="ltr">{{ '{:,}'.format(breakdown.consumable_expenses) }}</span>
+    </div>
+
+    {% if not breakdown.is_partner_self %}
+    <div class="d-flex justify-content-between px-2 py-1 border-top text-muted">
+      <span class="ps-3">۲.۱) سهم پزشک از هزینهٔ مصرفی ({{ breakdown.doctor_pct }}٪ از ردیف ۲)</span><span dir="ltr">− {{ '{:,}'.format(breakdown.doctor_consumable_cut) }}</span>
+    </div>
+    <div class="d-flex justify-content-between px-2 py-1 border-top text-muted">
+      <span class="ps-3">۲.۲) سهم کلینیک/شریک از هزینهٔ مصرفی (باقیماندهٔ ردیف ۲)</span><span dir="ltr">− {{ '{:,}'.format(breakdown.other_consumable_cut) }}</span>
+    </div>
+    {% else %}
+    <div class="d-flex justify-content-between px-2 py-1 border-top text-muted">
+      <span class="ps-3">اپراتور این دوره خودِ شریک است — پزشک ثالثی درگیر نیست، پس کل ردیف ۲ مستقیم در محاسبهٔ باقیمانده (ردیف ۵) کسر می‌شود، نه به‌صورت جداگانه.</span>
     </div>
     {% endif %}
+
+    <div class="d-flex justify-content-between px-2 py-1 border-top">
+      <span>۳) جمع هزینه‌های غیرمصرفی این دوره (فقط از سهم کلینیک/شریک کسر می‌شود)</span><span dir="ltr">{{ '{:,}'.format(breakdown.non_consumable_expenses) }}</span>
+    </div>
+
+    {% if not breakdown.is_partner_self %}
+    <div class="d-flex justify-content-between px-2 py-1 border-top fw-semibold">
+      <span>۴) سهم پزشک = ردیف ۱ − ردیف ۲.۱</span><span dir="ltr">{{ '{:,}'.format(breakdown.doctor_share) }}</span>
+    </div>
+    <div class="d-flex justify-content-between px-2 py-1 border-top fw-semibold">
+      <span>۵) باقیماندهٔ قابل تقسیم = ردیف ۴ − ردیف ۲.۲ − ردیف ۳</span><span dir="ltr">{{ '{:,}'.format(breakdown.remaining) }}</span>
+    </div>
+    {% else %}
+    <div class="d-flex justify-content-between px-2 py-1 border-top fw-semibold">
+      <span>۵) باقیماندهٔ قابل تقسیم = ردیف ۱ − ردیف ۲ − ردیف ۳ (بدون کسر سهم پزشک)</span><span dir="ltr">{{ '{:,}'.format(breakdown.remaining) }}</span>
+    </div>
+    {% endif %}
+
+    <div class="d-flex justify-content-between px-2 py-1 border-top">
+      <span>۶) سهم کلینیک از باقیمانده = ردیف ۵ × {{ breakdown.clinic_pct }}٪</span><span dir="ltr">{{ '{:,}'.format(breakdown.clinic_share) }}</span>
+    </div>
+    <div class="d-flex justify-content-between px-2 py-1 border-top">
+      <span>۷) سهم شریک بخش تغذیه از باقیمانده = ردیف ۵ × {{ breakdown.partner_pct }}٪</span><span dir="ltr">{{ '{:,}'.format(breakdown.partner_share) }}</span>
+    </div>
+
+    {% if party == 'partner' and adjustment_amount %}
+    <div class="d-flex justify-content-between px-2 py-1 border-top">
+      <span>۸) تعدیل نقدی این دوره{% if adjustment_note %} — {{ adjustment_note }}{% endif %}</span><span dir="ltr">{{ '{:,}'.format(adjustment_amount) }}</span>
+    </div>
+    {% endif %}
+
     <div class="d-flex justify-content-between px-3 py-2 border-top fw-bold" style="background:#e3f6e8; font-size:1.05rem;">
-      <span>مبلغ قابل تحویل</span><span dir="ltr">{{ '{:,}'.format(payable) }} ریال</span>
+      <span>{% if party == 'partner' %}مبلغ نهایی قابل تحویل به شریک{% else %}مبلغ نهایی سهم کلینیک{% endif %}</span>
+      <span dir="ltr">{{ '{:,}'.format(payable) }} ریال</span>
     </div>
     <div class="px-3 py-2 border-top text-muted" style="font-size:.78rem;">{{ payable_words }}</div>
   </div>
 
+  {% if party == 'partner' %}
   <div class="d-flex justify-content-between mt-5 text-muted" style="font-size:.75rem;">
     <span>امضا و مهر تحویل‌گیرنده: .......................................</span>
     <span dir="ltr">امضا و مهر واحد مالی: .......................................</span>
   </div>
+  {% else %}
+  <div class="mt-5 text-muted" style="font-size:.75rem;">
+    <span>امضا و مهر واحد مالی: .......................................</span>
+  </div>
+  {% endif %}
 </div>
 
 {% endblock %}

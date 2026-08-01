@@ -38,7 +38,8 @@
   </div>
   <div class="d-flex gap-2">
     <a href="/nutrition/settlement/export.csv?year={{ sel_year }}&month={{ sel_month }}" class="btn btn-sm btn-light border"><i class="bi bi-file-earmark-excel"></i> خروجی اکسل (CSV)</a>
-    <a href="/nutrition/settlement/invoice?year={{ sel_year }}&month={{ sel_month }}" class="btn btn-sm btn-light border"><i class="bi bi-receipt-cutoff"></i> فاکتور تحویل به شریک</a>
+    <a href="/nutrition/settlement/invoice?year={{ sel_year }}&month={{ sel_month }}&party=partner" class="btn btn-sm btn-light border"><i class="bi bi-receipt-cutoff"></i> فاکتور تحویل به شریک</a>
+    <a href="/nutrition/settlement/invoice?year={{ sel_year }}&month={{ sel_month }}&party=clinic" class="btn btn-sm btn-light border"><i class="bi bi-receipt-cutoff"></i> فاکتور سهم کلینیک</a>
     <button type="button" class="btn btn-sm btn-light border" onclick="window.print()"><i class="bi bi-printer"></i> چاپ / PDF</button>
   </div>
 </div>
