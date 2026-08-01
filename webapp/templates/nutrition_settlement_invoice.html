@@ -50,66 +50,60 @@
   </div>
 
   <div class="border mb-3" style="font-size:.85rem;">
-    <div class="p-2 fw-semibold" style="background:#eef4fa;">شرح کامل محاسبه — گام به گام</div>
+    <div class="p-2 fw-semibold" style="background:#eef4fa;">شرح کامل محاسبه</div>
 
     <div class="d-flex justify-content-between px-2 py-1 border-top">
-      <span>۱) درآمد ناخالص بخش تغذیه این دوره (جمع کل)</span><span dir="ltr">{{ '{:,}'.format(breakdown.gross_revenue) }}</span>
+      <span>درآمد کل بخش تغذیه</span><span dir="ltr">{{ '{:,}'.format(breakdown.gross_revenue) }}</span>
     </div>
     {% if breakdown.partner_self_revenue > 0 %}
     <div class="d-flex justify-content-between px-2 py-1 border-top text-muted">
-      <span class="ps-3">۱.۱) از این مبلغ، درآمد پزشک ({{ breakdown.doctor_name }})</span><span dir="ltr">{{ '{:,}'.format(breakdown.doctor_revenue) }}</span>
+      <span class="ps-3">درآمد پزشک ({{ breakdown.doctor_name }})</span><span dir="ltr">{{ '{:,}'.format(breakdown.doctor_revenue) }}</span>
     </div>
     <div class="d-flex justify-content-between px-2 py-1 border-top text-muted">
-      <span class="ps-3">۱.۲) از این مبلغ، درآمد شریک بخش تغذیه (اپراتور خودِ شریک)</span><span dir="ltr">{{ '{:,}'.format(breakdown.partner_self_revenue) }}</span>
+      <span class="ps-3">درآمد شریک بخش تغذیه</span><span dir="ltr">{{ '{:,}'.format(breakdown.partner_self_revenue) }}</span>
     </div>
     {% endif %}
 
     <div class="d-flex justify-content-between px-2 py-1 border-top">
-      <span>۲) جمع هزینه‌های مصرفی این دوره</span><span dir="ltr">{{ '{:,}'.format(breakdown.consumable_expenses) }}</span>
+      <span>هزینه‌های مصرفی</span><span dir="ltr">{{ '{:,}'.format(breakdown.consumable_expenses) }}</span>
     </div>
 
     {% if breakdown.doctor_revenue > 0 %}
     <div class="d-flex justify-content-between px-2 py-1 border-top text-muted">
-      <span class="ps-3">۲.۱) سهم پزشک از هزینهٔ مصرفی ({{ breakdown.doctor_pct }}٪ از ردیف ۲)</span><span dir="ltr">− {{ '{:,}'.format(breakdown.doctor_consumable_cut) }}</span>
+      <span class="ps-3">سهم پزشک از هزینهٔ مصرفی ({{ breakdown.doctor_pct }}٪)</span><span dir="ltr">− {{ '{:,}'.format(breakdown.doctor_consumable_cut) }}</span>
     </div>
     <div class="d-flex justify-content-between px-2 py-1 border-top text-muted">
-      <span class="ps-3">۲.۲) سهم کلینیک/شریک از هزینهٔ مصرفی (باقیماندهٔ ردیف ۲)</span><span dir="ltr">− {{ '{:,}'.format(breakdown.other_consumable_cut) }}</span>
+      <span class="ps-3">سهم کلینیک/شریک از هزینهٔ مصرفی</span><span dir="ltr">− {{ '{:,}'.format(breakdown.other_consumable_cut) }}</span>
     </div>
     {% else %}
     <div class="d-flex justify-content-between px-2 py-1 border-top text-muted">
-      <span class="ps-3">این دوره درآمد پزشک صفر است — پزشک ثالثی درگیر نیست، پس کل ردیف ۲ مستقیم در محاسبهٔ باقیمانده (ردیف ۵) کسر می‌شود، نه به‌صورت جداگانه.</span>
+      <span class="ps-3">این دوره پزشک ثالثی درگیر نیست — کل هزینهٔ مصرفی مستقیم از باقیمانده کسر می‌شود.</span>
     </div>
     {% endif %}
 
     <div class="d-flex justify-content-between px-2 py-1 border-top">
-      <span>۳) جمع هزینه‌های غیرمصرفی این دوره (فقط از سهم کلینیک/شریک کسر می‌شود)</span><span dir="ltr">{{ '{:,}'.format(breakdown.non_consumable_expenses) }}</span>
+      <span>هزینه‌های غیرمصرفی <span class="text-muted">(فقط از سهم کلینیک/شریک کسر می‌شود)</span></span><span dir="ltr">{{ '{:,}'.format(breakdown.non_consumable_expenses) }}</span>
     </div>
 
     {% if breakdown.doctor_revenue > 0 %}
     <div class="d-flex justify-content-between px-2 py-1 border-top fw-semibold">
-      <span>۴) سهم پزشک = ردیف ۱.۱ − ردیف ۲.۱</span><span dir="ltr">{{ '{:,}'.format(breakdown.doctor_share) }}</span>
+      <span>سهم پزشک</span><span dir="ltr">{{ '{:,}'.format(breakdown.doctor_share) }}</span>
     </div>
     {% endif %}
-    {% if breakdown.partner_self_revenue > 0 %}
     <div class="d-flex justify-content-between px-2 py-1 border-top fw-semibold">
-      <span>۵) باقیماندهٔ قابل تقسیم = {% if breakdown.doctor_revenue > 0 %}ردیف ۴ − ردیف ۲.۲ − ردیف ۳ + ردیف ۱.۲{% else %}ردیف ۱ − ردیف ۲ − ردیف ۳{% endif %}</span><span dir="ltr">{{ '{:,}'.format(breakdown.remaining) }}</span>
+      <span>باقیماندهٔ قابل تقسیم بین کلینیک و شریک</span><span dir="ltr">{{ '{:,}'.format(breakdown.remaining) }}</span>
     </div>
-    {% else %}
-    <div class="d-flex justify-content-between px-2 py-1 border-top fw-semibold">
-      <span>۵) باقیماندهٔ قابل تقسیم = ردیف ۴ − ردیف ۲.۲ − ردیف ۳</span><span dir="ltr">{{ '{:,}'.format(breakdown.remaining) }}</span>
-    </div>
-    {% endif %}
 
     <div class="d-flex justify-content-between px-2 py-1 border-top">
-      <span>۶) سهم کلینیک از باقیمانده = ردیف ۵ × {{ breakdown.clinic_pct }}٪</span><span dir="ltr">{{ '{:,}'.format(breakdown.clinic_share) }}</span>
+      <span>سهم کلینیک ({{ breakdown.clinic_pct }}٪ از باقیمانده)</span><span dir="ltr">{{ '{:,}'.format(breakdown.clinic_share) }}</span>
     </div>
     <div class="d-flex justify-content-between px-2 py-1 border-top">
-      <span>۷) سهم شریک بخش تغذیه از باقیمانده = ردیف ۵ × {{ breakdown.partner_pct }}٪</span><span dir="ltr">{{ '{:,}'.format(breakdown.partner_share) }}</span>
+      <span>سهم شریک بخش تغذیه ({{ breakdown.partner_pct }}٪ از باقیمانده)</span><span dir="ltr">{{ '{:,}'.format(breakdown.partner_share) }}</span>
     </div>
 
     {% if party == 'partner' and adjustment_amount %}
     <div class="d-flex justify-content-between px-2 py-1 border-top">
-      <span>۸) تعدیل نقدی این دوره{% if adjustment_note %} — {{ adjustment_note }}{% endif %}</span><span dir="ltr">{{ '{:,}'.format(adjustment_amount) }}</span>
+      <span>تعدیل نقدی این دوره{% if adjustment_note %} — {{ adjustment_note }}{% endif %}</span><span dir="ltr">{{ '{:,}'.format(adjustment_amount) }}</span>
     </div>
     {% endif %}
 

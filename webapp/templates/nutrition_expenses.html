@@ -20,6 +20,12 @@
       <div><div class="cp-kpi-label">جمع هزینهٔ غیرمصرفی</div><div class="cp-kpi-value">{{ '{:,}'.format(total_non_consumable) }}</div></div>
     </div>
   </div>
+  <div class="col-6 col-md-3">
+    <div class="cp-kpi">
+      <div class="cp-kpi-icon" style="background:#eef1f2; color:#132b36;"><i class="bi bi-receipt-cutoff"></i></div>
+      <div><div class="cp-kpi-label">جمع کل هزینه‌ها</div><div class="cp-kpi-value">{{ '{:,}'.format(total_consumable + total_non_consumable) }}</div></div>
+    </div>
+  </div>
 </div>
 
 <div class="cp-card p-3 mb-3">
