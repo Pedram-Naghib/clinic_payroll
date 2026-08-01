@@ -69,21 +69,32 @@
     <div class="text-muted" style="font-size:.8rem;">پزشک: {{ active_doctor.full_name }} · سهم پزشک {{ breakdown.doctor_pct }}% / کلینیک {{ breakdown.clinic_pct }}% / شریک {{ breakdown.partner_pct }}%</div>
   </div>
 
-  {% if breakdown.is_partner_self %}
+  {% if breakdown.doctor_revenue > 0 and breakdown.partner_self_revenue > 0 %}
   <div class="alert alert-info py-2 mb-3" style="font-size:.82rem;">
-    اپراتور فعال این ماه، خودِ شریک بخش تغذیه است — چون طرف سومی (پزشک مستقل) درگیر نیست، سهم پزشک محاسبه نمی‌شود و کل باقیمانده بین کلینیک و شریک تقسیم می‌شود.
+    این ماه هم پزشک ({{ active_doctor.full_name }}) و هم خودِ شریک بخش تغذیه درآمد داشته‌اند — هرکدام جدا محاسبه می‌شود: سهم پزشک فقط از درآمد خودش، درآمد شریک بدون کسر سهم پزشک مستقیم وارد باقیمانده می‌شود.
+  </div>
+  {% elif breakdown.doctor_revenue == 0 and breakdown.partner_self_revenue > 0 %}
+  <div class="alert alert-info py-2 mb-3" style="font-size:.82rem;">
+    این ماه فقط شریک بخش تغذیه درآمد داشته — چون طرف سومی (پزشک مستقل) درگیر نیست، سهم پزشک محاسبه نمی‌شود و کل باقیمانده بین کلینیک و شریک تقسیم می‌شود.
   </div>
   {% endif %}
   <table class="table table-borderless mb-0" style="font-size:.9rem;">
-    <tr><td style="width:60%;">درآمد ناخالص بخش تغذیه</td><td class="text-end fw-semibold" dir="ltr">{{ '{:,}'.format(breakdown.gross_revenue) }}</td></tr>
+    <tr><td style="width:60%;">درآمد ناخالص بخش تغذیه (جمع کل)</td><td class="text-end fw-semibold" dir="ltr">{{ '{:,}'.format(breakdown.gross_revenue) }}</td></tr>
+    {% if breakdown.partner_self_revenue > 0 %}
+    <tr><td class="text-muted ps-4">— درآمد پزشک ({{ active_doctor.full_name }})</td><td class="text-end text-muted" dir="ltr">{{ '{:,}'.format(breakdown.doctor_revenue) }}</td></tr>
+    <tr><td class="text-muted ps-4">— درآمد شریک بخش تغذیه (اپراتور شریک)</td><td class="text-end text-muted" dir="ltr">{{ '{:,}'.format(breakdown.partner_self_revenue) }}</td></tr>
+    {% endif %}
     <tr><td>هزینه‌های مصرفی (کل)</td><td class="text-end" dir="ltr">{{ '{:,}'.format(breakdown.consumable_expenses) }}</td></tr>
-    {% if not breakdown.is_partner_self %}
+    {% if breakdown.doctor_revenue > 0 %}
     <tr><td class="text-muted ps-4">— سهم پزشک از هزینهٔ مصرفی ({{ breakdown.doctor_pct }}%)</td><td class="text-end text-muted" dir="ltr">− {{ '{:,}'.format(breakdown.doctor_consumable_cut) }}</td></tr>
     <tr><td class="text-muted ps-4">— سهم کلینیک/شریک از هزینهٔ مصرفی</td><td class="text-end text-muted" dir="ltr">− {{ '{:,}'.format(breakdown.other_consumable_cut) }}</td></tr>
     {% endif %}
     <tr><td>هزینه‌های غیرمصرفی (فقط کسر از کلینیک/شریک)</td><td class="text-end" dir="ltr">− {{ '{:,}'.format(breakdown.non_consumable_expenses) }}</td></tr>
-    {% if not breakdown.is_partner_self %}
+    {% if breakdown.doctor_revenue > 0 %}
     <tr class="border-top"><td class="fw-bold pt-2">سهم پزشک</td><td class="text-end fw-bold pt-2" dir="ltr">{{ '{:,}'.format(breakdown.doctor_share) }}</td></tr>
+    {% endif %}
+    {% if breakdown.partner_self_revenue > 0 %}
+    <tr><td class="text-muted ps-4">+ درآمد شریک (بدون کسر، مستقیم وارد باقیمانده)</td><td class="text-end text-muted" dir="ltr">+ {{ '{:,}'.format(breakdown.partner_self_revenue) }}</td></tr>
     {% endif %}
     <tr><td class="fw-bold">باقیماندهٔ قابل تقسیم بین کلینیک و شریک</td><td class="text-end fw-bold" dir="ltr">{{ '{:,}'.format(breakdown.remaining) }}</td></tr>
   </table>

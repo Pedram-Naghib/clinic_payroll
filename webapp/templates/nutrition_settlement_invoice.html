@@ -43,8 +43,8 @@
         <td>{{ month_label }} {{ sel_year }}</td>
       </tr>
       <tr>
-        <td class="bg-light fw-semibold">اپراتور فعال این دوره</td>
-        <td>{{ breakdown.doctor_name }}{% if breakdown.is_partner_self %} (شریک بخش تغذیه — بدون پزشک ثالث){% endif %}</td>
+        <td class="bg-light fw-semibold">پزشک تحت قرارداد این دوره</td>
+        <td>{{ breakdown.doctor_name }}</td>
       </tr>
     </table>
   </div>
@@ -53,13 +53,22 @@
     <div class="p-2 fw-semibold" style="background:#eef4fa;">شرح کامل محاسبه — گام به گام</div>
 
     <div class="d-flex justify-content-between px-2 py-1 border-top">
-      <span>۱) درآمد ناخالص بخش تغذیه این دوره</span><span dir="ltr">{{ '{:,}'.format(breakdown.gross_revenue) }}</span>
+      <span>۱) درآمد ناخالص بخش تغذیه این دوره (جمع کل)</span><span dir="ltr">{{ '{:,}'.format(breakdown.gross_revenue) }}</span>
     </div>
+    {% if breakdown.partner_self_revenue > 0 %}
+    <div class="d-flex justify-content-between px-2 py-1 border-top text-muted">
+      <span class="ps-3">۱.۱) از این مبلغ، درآمد پزشک ({{ breakdown.doctor_name }})</span><span dir="ltr">{{ '{:,}'.format(breakdown.doctor_revenue) }}</span>
+    </div>
+    <div class="d-flex justify-content-between px-2 py-1 border-top text-muted">
+      <span class="ps-3">۱.۲) از این مبلغ، درآمد شریک بخش تغذیه (اپراتور خودِ شریک)</span><span dir="ltr">{{ '{:,}'.format(breakdown.partner_self_revenue) }}</span>
+    </div>
+    {% endif %}
+
     <div class="d-flex justify-content-between px-2 py-1 border-top">
       <span>۲) جمع هزینه‌های مصرفی این دوره</span><span dir="ltr">{{ '{:,}'.format(breakdown.consumable_expenses) }}</span>
     </div>
 
-    {% if not breakdown.is_partner_self %}
+    {% if breakdown.doctor_revenue > 0 %}
     <div class="d-flex justify-content-between px-2 py-1 border-top text-muted">
       <span class="ps-3">۲.۱) سهم پزشک از هزینهٔ مصرفی ({{ breakdown.doctor_pct }}٪ از ردیف ۲)</span><span dir="ltr">− {{ '{:,}'.format(breakdown.doctor_consumable_cut) }}</span>
     </div>
@@ -68,7 +77,7 @@
     </div>
     {% else %}
     <div class="d-flex justify-content-between px-2 py-1 border-top text-muted">
-      <span class="ps-3">اپراتور این دوره خودِ شریک است — پزشک ثالثی درگیر نیست، پس کل ردیف ۲ مستقیم در محاسبهٔ باقیمانده (ردیف ۵) کسر می‌شود، نه به‌صورت جداگانه.</span>
+      <span class="ps-3">این دوره درآمد پزشک صفر است — پزشک ثالثی درگیر نیست، پس کل ردیف ۲ مستقیم در محاسبهٔ باقیمانده (ردیف ۵) کسر می‌شود، نه به‌صورت جداگانه.</span>
     </div>
     {% endif %}
 
@@ -76,16 +85,18 @@
       <span>۳) جمع هزینه‌های غیرمصرفی این دوره (فقط از سهم کلینیک/شریک کسر می‌شود)</span><span dir="ltr">{{ '{:,}'.format(breakdown.non_consumable_expenses) }}</span>
     </div>
 
-    {% if not breakdown.is_partner_self %}
+    {% if breakdown.doctor_revenue > 0 %}
     <div class="d-flex justify-content-between px-2 py-1 border-top fw-semibold">
-      <span>۴) سهم پزشک = ردیف ۱ − ردیف ۲.۱</span><span dir="ltr">{{ '{:,}'.format(breakdown.doctor_share) }}</span>
+      <span>۴) سهم پزشک = ردیف ۱.۱ − ردیف ۲.۱</span><span dir="ltr">{{ '{:,}'.format(breakdown.doctor_share) }}</span>
     </div>
+    {% endif %}
+    {% if breakdown.partner_self_revenue > 0 %}
     <div class="d-flex justify-content-between px-2 py-1 border-top fw-semibold">
-      <span>۵) باقیماندهٔ قابل تقسیم = ردیف ۴ − ردیف ۲.۲ − ردیف ۳</span><span dir="ltr">{{ '{:,}'.format(breakdown.remaining) }}</span>
+      <span>۵) باقیماندهٔ قابل تقسیم = {% if breakdown.doctor_revenue > 0 %}ردیف ۴ − ردیف ۲.۲ − ردیف ۳ + ردیف ۱.۲{% else %}ردیف ۱ − ردیف ۲ − ردیف ۳{% endif %}</span><span dir="ltr">{{ '{:,}'.format(breakdown.remaining) }}</span>
     </div>
     {% else %}
     <div class="d-flex justify-content-between px-2 py-1 border-top fw-semibold">
-      <span>۵) باقیماندهٔ قابل تقسیم = ردیف ۱ − ردیف ۲ − ردیف ۳ (بدون کسر سهم پزشک)</span><span dir="ltr">{{ '{:,}'.format(breakdown.remaining) }}</span>
+      <span>۵) باقیماندهٔ قابل تقسیم = ردیف ۴ − ردیف ۲.۲ − ردیف ۳</span><span dir="ltr">{{ '{:,}'.format(breakdown.remaining) }}</span>
     </div>
     {% endif %}
 
