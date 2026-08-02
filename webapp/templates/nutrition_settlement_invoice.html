@@ -65,15 +65,18 @@
     {% endif %}
 
     <div class="d-flex justify-content-between px-2 py-1 border-top">
-      <span>هزینه‌های مصرفی</span><span dir="ltr">{{ '{:,}'.format(breakdown.consumable_expenses) }}</span>
+      <span>هزینه‌های مصرفی <span class="text-muted">(مربوط به کار پزشک)</span></span><span dir="ltr">{{ '{:,}'.format(breakdown.consumable_expenses) }}</span>
     </div>
 
     {% if breakdown.doctor_revenue > 0 %}
     <div class="d-flex justify-content-between px-2 py-1 border-top text-muted">
-      <span class="ps-3">سهم پزشک از هزینهٔ مصرفی ({{ breakdown.doctor_pct }}٪)</span><span dir="ltr">− {{ '{:,}'.format(breakdown.doctor_consumable_cut) }}</span>
+      <span class="ps-3">درآمد پزشک پس از کسر هزینهٔ مصرفی</span><span dir="ltr">{{ '{:,}'.format(breakdown.net_after_consumable) }}</span>
     </div>
     <div class="d-flex justify-content-between px-2 py-1 border-top text-muted">
-      <span class="ps-3">سهم کلینیک/شریک از هزینهٔ مصرفی</span><span dir="ltr">− {{ '{:,}'.format(breakdown.other_consumable_cut) }}</span>
+      <span class="ps-3">سهم پزشک از این مبلغ ({{ breakdown.doctor_pct }}٪)</span><span dir="ltr">{{ '{:,}'.format(breakdown.doctor_share) }}</span>
+    </div>
+    <div class="d-flex justify-content-between px-2 py-1 border-top text-muted">
+      <span class="ps-3">سهم مشترک کلینیک/شریک از این مبلغ ({{ 100 - breakdown.doctor_pct }}٪)</span><span dir="ltr">{{ '{:,}'.format(breakdown.doctor_pool_contribution) }}</span>
     </div>
     {% else %}
     <div class="d-flex justify-content-between px-2 py-1 border-top text-muted">

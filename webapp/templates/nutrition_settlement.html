@@ -84,10 +84,13 @@
     <tr><td class="text-muted ps-4">— درآمد پزشک ({{ active_doctor.full_name }})</td><td class="text-end text-muted" dir="ltr">{{ '{:,}'.format(breakdown.doctor_revenue) }}</td></tr>
     <tr><td class="text-muted ps-4">— درآمد شریک بخش تغذیه (اپراتور شریک)</td><td class="text-end text-muted" dir="ltr">{{ '{:,}'.format(breakdown.partner_self_revenue) }}</td></tr>
     {% endif %}
-    <tr><td>هزینه‌های مصرفی (کل)</td><td class="text-end" dir="ltr">{{ '{:,}'.format(breakdown.consumable_expenses) }}</td></tr>
+    <tr><td>هزینه‌های مصرفی (کل، مربوط به کار پزشک)</td><td class="text-end" dir="ltr">{{ '{:,}'.format(breakdown.consumable_expenses) }}</td></tr>
     {% if breakdown.doctor_revenue > 0 %}
-    <tr><td class="text-muted ps-4">— سهم پزشک از هزینهٔ مصرفی ({{ breakdown.doctor_pct }}%)</td><td class="text-end text-muted" dir="ltr">− {{ '{:,}'.format(breakdown.doctor_consumable_cut) }}</td></tr>
-    <tr><td class="text-muted ps-4">— سهم کلینیک/شریک از هزینهٔ مصرفی</td><td class="text-end text-muted" dir="ltr">− {{ '{:,}'.format(breakdown.other_consumable_cut) }}</td></tr>
+    <tr><td class="text-muted ps-4">— درآمد پزشک پس از کسر مصرفی</td><td class="text-end text-muted" dir="ltr">{{ '{:,}'.format(breakdown.net_after_consumable) }}</td></tr>
+    <tr><td class="text-muted ps-4">— سهم پزشک از این مبلغ ({{ breakdown.doctor_pct }}%)</td><td class="text-end text-muted" dir="ltr">{{ '{:,}'.format(breakdown.doctor_share) }}</td></tr>
+    <tr><td class="text-muted ps-4">— سهم مشترک کلینیک/شریک از این مبلغ ({{ 100 - breakdown.doctor_pct }}%)</td><td class="text-end text-muted" dir="ltr">{{ '{:,}'.format(breakdown.doctor_pool_contribution) }}</td></tr>
+    {% else %}
+    <tr><td class="text-muted ps-4">این ماه پزشکی فعال نیست — کل هزینهٔ مصرفی مستقیم از باقیمانده کسر می‌شود.</td><td></td></tr>
     {% endif %}
     <tr><td>هزینه‌های غیرمصرفی (فقط کسر از کلینیک/شریک)</td><td class="text-end" dir="ltr">− {{ '{:,}'.format(breakdown.non_consumable_expenses) }}</td></tr>
     {% if breakdown.doctor_revenue > 0 %}

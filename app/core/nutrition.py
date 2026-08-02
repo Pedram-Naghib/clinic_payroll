@@ -3,23 +3,21 @@ monthly settlement. Web-only (like app.core.insurance) -- raw SQL via a
 connection object, dataclass inputs, plain functions, same shape as the
 rest of app/core.
 
-Business model: exactly one nutrition doctor is "active" at a time (the one
-currently under contract). Activating a doctor auto-deactivates the others
--- enforced here, not just in the UI, so the settlement calculation always
-has a single unambiguous doctor to attribute a month's numbers to. Each
-doctor has exactly one contract row (percentages), edited in place rather
-than versioned -- past settlements already snapshot their own numbers
-(gross_revenue, shares, ...) so editing today's percentages never rewrites
-history.
+Business model: exactly one nutrition doctor/operator row is "active" at a
+time (the one currently under contract, governs which contract's
+percentages apply to a settlement). Activating one auto-deactivates the
+others -- enforced here, not just in the UI. Each doctor has exactly one
+contract row (percentages), edited in place rather than versioned -- past
+settlements already snapshot their own numbers (gross_revenue, shares,
+...) so editing today's percentages never rewrites history.
 
-Settlement formula (contract math, see the clinic's actual paper contracts):
-  doctor_share = gross_revenue - consumable_expenses * doctor_pct
-  remaining    = doctor_share - consumable_expenses * (1 - doctor_pct) - non_consumable_expenses
-  clinic_share  = remaining * clinic_pct
-  partner_share = remaining * partner_pct
-doctor_pct/clinic_pct/partner_pct default to 50/50/50, which reduces this
-exactly to the fixed halves/50-50 split described in the contracts;
-clinic_pct + partner_pct must sum to 100 (validated on save).
+Revenue splits into two streams a month can mix: a treating physician's
+(doctor_revenue) and the partner personally performing the service
+herself (partner_self_revenue, an operator row flagged is_partner_self).
+See compute_shares for the full formula and reasoning -- in short:
+consumable materials belong to the physician's stream only (a real 50-50
+professional-fee split with a third party), the partner's own revenue
+co-owns the pool directly with no split step.
 """
 from __future__ import annotations
 from dataclasses import dataclass
@@ -247,24 +245,33 @@ def compute_shares(
     page shows this whole dict, not just the three final shares.
 
     Revenue comes in two streams that can coexist in the same month:
-    doctor_revenue (a treating physician's visits -- goes through the
-    doctor-share/consumable-split formula) and partner_self_revenue (the
-    partner personally performed the service -- no third-party cut to
-    carve out, so it skips the doctor-share step and adds directly into
-    the remaining pool that clinic/partner split). When doctor_revenue is
-    0, the doctor-cut step is skipped entirely (there's no physician
-    entitled to a cut that month) and the full consumable_expenses comes
-    out of remaining instead of being split."""
+
+    doctor_revenue -- a treating physician's visits. Consumable materials
+    belong entirely to this stream (the physician's treatments use them;
+    the partner's own services, e.g. laser, don't) -- so consumable_expenses
+    is subtracted from doctor_revenue FIRST, and only the result (which can
+    go negative in a bad month) is split doctor_pct/rest between the
+    physician and the shared pool. This is a real 50-50 fee-split with a
+    third party, not a department-expense allocation.
+
+    partner_self_revenue -- the partner personally performed the service.
+    She's not a third-party contractor being paid a fee out of the pool,
+    she co-owns the pool directly -- so her revenue adds straight into the
+    shared pool with no split step and no consumable charged against it.
+
+    When doctor_revenue is 0 (no physician active/earning that month), the
+    doctor-split step is skipped entirely and the full consumable_expenses
+    comes out of the shared pool instead -- there's no physician stream for
+    it to belong to."""
     if doctor_revenue > 0:
-        doctor_frac = doctor_pct / 100
-        doctor_consumable_cut = consumable_expenses * doctor_frac
-        other_consumable_cut = consumable_expenses - doctor_consumable_cut
-        doctor_share = doctor_revenue - doctor_consumable_cut
+        net_after_consumable = doctor_revenue - consumable_expenses
+        doctor_share = net_after_consumable * (doctor_pct / 100)
+        doctor_pool_contribution = net_after_consumable - doctor_share
     else:
-        doctor_consumable_cut = 0
-        other_consumable_cut = consumable_expenses
+        net_after_consumable = doctor_revenue - consumable_expenses
         doctor_share = 0
-    remaining = doctor_share - other_consumable_cut - non_consumable_expenses + partner_self_revenue
+        doctor_pool_contribution = net_after_consumable
+    remaining = doctor_pool_contribution + partner_self_revenue - non_consumable_expenses
     clinic_share = remaining * (clinic_pct / 100)
     partner_share = remaining * (partner_pct / 100)
     return {
@@ -273,8 +280,8 @@ def compute_shares(
         "partner_self_revenue": partner_self_revenue,
         "consumable_expenses": consumable_expenses,
         "non_consumable_expenses": non_consumable_expenses,
-        "doctor_consumable_cut": round(doctor_consumable_cut),
-        "other_consumable_cut": round(other_consumable_cut),
+        "net_after_consumable": round(net_after_consumable),
+        "doctor_pool_contribution": round(doctor_pool_contribution),
         "doctor_share": round(doctor_share),
         "remaining": round(remaining),
         "clinic_share": round(clinic_share),
