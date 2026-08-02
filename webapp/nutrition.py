@@ -353,7 +353,7 @@ def _settlement_ctx(request: Request, user: CurrentUser, conn, year: int, month:
         "active_doctor": active_doctor, "breakdown": breakdown,
         "already_saved": existing is not None,
         "existing_adjustment_amount": existing["adjustment_amount"] if existing else 0,
-        "existing_adjustment_note": existing["adjustment_note"] if existing else "",
+        "existing_adjustment_note": (existing["adjustment_note"] if existing else None) or "",
         "past_settlements": list_settlements(conn),
     })
     return c
